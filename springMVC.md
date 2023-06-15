@@ -485,14 +485,14 @@ SpringMVC提供了一个编码过滤器 CharacterEncodingFilter，可以用来�
 
 ### request作用域
 
-#### ServletAPI获取
+#### 利用ServletAPI
 
 直接通过 `HttpServletRequest对象.setAttribute(String keyName,Object value)` 的方式将值存入到request作用域
 
 ```java
 @RequestMapping("请求路径")
 public String 方法名(HttpServletRequest request){
-    request.setAttribute("keyName", "value");
+    request.setAttribute("keyName", value);
 }
 
 <p th:text="${keyName}"></p>
@@ -503,7 +503,136 @@ public String 方法名(HttpServletRequest request){
 
 
 
-#### xxx
+#### 利用ModelAndView
+
+- ModelAndView具有 Model 和 View 的功能
+  - Model主要用于项请求域中共享数据
+  - View主要用于设置视图，实现页面渲染和跳转
+  
+- 观察源码：在方法栈中，可以发现调用了DispatcherServlet类中的doDispatch方法。而该方法在内部调用其他方法后，结果是返回一个ModelAndView对象
+
+  因此可以得出结论：无论是哪种方式向域对象中保存数据，结果都会重新封装为一个ModelAndView对象
+
+```java
+@RequestMapping("请求路径")
+public ModelAndView 方法名() {
+    
+    // 1.创建ModelAndView对象
+    ModelAndView mav = new ModelAndView();
+    
+    // 2.向ModelAndView对象中设置请求域
+    mav.addObject("keyName", value);
+    
+    // 3.设置跳转渲染的视图名称
+    mav.setViewName("视图名称");
+    
+    // 4.返回ModelAndView对象
+    return mav;
+    
+}
+
+// 使用了ModelAndView，若想要共享数据起作用，则方法的返回值就必须为ModelAndView
+```
+
+
+
+
+
+#### 利用Model / Map / ModelMap
+
+1）使用Model向request域对象中共享数据：
+
+```java
+@RequestMapping("请求路径")
+public String 方法名(Model 形参名) {			// 传递Model类型参数
+    形参名.addAttribute("keyName", value);
+}
+```
+
+
+
+2）使用Map向request域对象中共享数据：
+
+```java
+@RequestMapping("请求路径")
+public String 方法名(Map<String,Object> 形参名) {			// 传递Map类型参数
+    形参名.put("keyName", value);
+}
+```
+
+
+
+3）使用ModelMap向request域对象中共享数据：
+
+```java
+@RequestMapping("请求路径")
+public String 方法名(ModelMap 形参名) {			// 传递ModelMap类型参数
+    形参名.addAttribute("keyName", value);
+}
+```
+
+
+
+Model、Map、ModelMap 三者间的关系：
+
+- ```java
+  public class ModelMap extends LinkedHashMap<String, Object> {}
+  public class LinkedHashMap<K,V> extends HashMap<K,V> implements Map<K,V>
+  ```
+
+- ```java
+  public class BindingAwareModelMap extends ExtendedModelMap {}
+  public class ExtendedModelMap extends ModelMap implements Model {}
+  ```
+
+所以，BindingAwareModelMap 是 Map、Model 的实现类，是 ModelMap 的子类，而传入Model、Map、ModelMap类型，从本质上可以看做是传入了BindingAwareModelMap类型
+
+
+
+
+
+
+
+### Session作用域
+
+> 使用ServletAPI处理较为简单
+
+```java
+@RequestMapping("请求路径")
+public String 方法名(HttpSession 形参名){
+    形参名.setAttribute("keyName",value);
+}
+```
+
+
+
+
+
+
+
+### Application作用域
+
+> 使用ServletAPI处理较为简单
+
+```java
+@RequestMapping("请求路径")
+public String 方法名(HttpSession 形参名){
+    ServletContext 变量名 = 形参名.getServletContext();
+    变量名.setAttribute("keyName",value);
+}
+```
+
+
+
+
+
+
+
+
+
+## XXX
+
+
 
 
 
