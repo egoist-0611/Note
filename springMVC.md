@@ -630,7 +630,180 @@ public String 方法名(HttpSession 形参名){
 
 
 
-## XXX
+## 视图处理
+
+> 视图的作用是渲染数据，将模型Model中的数据展示给用户
+>
+> SpringMVC中的视图是View接口，大体可分为三种技术：转发、重定向、模板引擎
+>
+> 通过是否被前缀修饰来确定调用哪个技术
+
+### ThymeleafView
+
+> 模版引擎技术
+>
+> 若使用了视图技术Thymeleaf，且在SpringMVC的配置文件中，配置Thymeleaf的视图解析器；当视图经过该解析器解析后，得到的就是ThymeleafView
+
+- 当控制器方法中，返回的视图名称没有任何前缀修饰时，此时的视图名称会被SpringMVC配置文件中所配置的视图解析器解析，视图名称拼接上视图前缀和后缀，得到最终路径，最终通过转发的方式实现跳转
+
+```java
+@RequestMapping("请求路径")
+public String 方法名(){
+    return "视图名称";
+}
+```
+
+> 观察源码：
+>
+> 1. 找到方法栈中，DispatcherServlet中的方法doDispatch，可知返回的视图名称，会重新封装为一个ModelAndView
+> 2. 接受到mv属性值后，继续往下走，会发现调用了processDispatchResult方法，进入方法内部
+> 3. 在方法内部进行了一系列判断后，会调用render方法，进入方法内部
+> 4. 在执行完resolveViewName方法后，就会得到一个封装了要调用的视图技术的View对象
+
+
+
+
+
+
+
+### InternalResourceView
+
+> 转发视图技术
+
+- 当控制器方法中返回的视图名称以 `forward:` 为前缀时，此时视图名称不会被SpringMVC配置文件中的视图解析器所解析，而是创建InternalResourceView视图，将前缀 forward: 去掉，将剩余部分作为最终路径，以转发的方式实现跳转
+
+```java
+@RequestMapping("请求路径")
+public String 方法名() {
+    return "forward:转发路径";
+}
+```
+
+- 若要转发的页面需要经过Thymeleaf渲染，则需要借助servlet来处理
+
+
+
+
+
+
+
+### RedirectView
+
+> 重定向视图技术
+
+- 当控制器方法中返回的视图名称，以 `redirect:` 为前缀时，则此时的视图名称并不会被SpringMVC配置文件中所配置的视图解析器所解析，而是创建RedirectView视图，将前缀 redirect: 去掉，将剩余部分作为最终路径，以重定向的方式实现跳转
+
+```java
+@RequestMapping("请求路径")
+public String 方法名(){
+    return "redirect:重定向路径";
+}
+```
+
+- 若要重定向的路径在WEB-INF下，则需要借助servlet来处理才能访问
+- 若要重定向的页面需要经过Thymeleaf渲染，则需要借助servlet来处理
+
+
+
+
+
+
+
+### 视图控制器
+
+当控制器方法仅仅是用来实现页面跳转（即：只返回了视图名称），而没有其他处理逻辑时，则可以使用 \<mvc:view-controller> 标签来代替该控制器方法
+
+```xml
+<mvc:view-controller path="请求的映射路径" view-name="返回的视图名称"/>
+```
+
+但是，只要设置了该标签，就会导致控制器方法中，所有的请求映射关系全部失效。
+
+若想要使控制器方法内的其他请求映射关系依旧生效，则需要额外添加标签 \<mvc:annotation:driven/> 来开启SpringMVC的注解驱动
+
+```xml
+<mvc:annotation-driven/>
+```
+
+
+
+
+
+
+
+
+
+
+
+## RESTFul
+
+### 介绍
+
+- RESTFul是一种风格，提倡URL地址使用统一的风格设计：从前到后所有单词以 / 分隔，不再使用 ?key=value 的方式携带请求参数，而是将要发送给服务器的数据作为URL地址的一部分。能保证整体风格的一致性
+
+- 使用HTTP协议的四种请求方式来代表不同的操作： GET（查）、POST（增）、PUT（改）、DELETE（删）
+
+  | 操作 |     传统方式     |       REST风格       |
+  | :--: | :--------------: | :------------------: |
+  |  查  | getUserById?id=1 |  （GET请求）user/1   |
+  |  增  |     addUser      |   （POST请求）user   |
+  |  删  | deleteUser?id=1  | （DELETE请求）user/1 |
+  |  改  |    updateUser    |   （PUT请求）user    |
+
+
+
+
+
+
+
+### 发送 DELETE / PUT 请求
+
+- 默认情况下，浏览器是不支持发送 DELETE / PUT 请求的
+- 因此，我们可以借助SpringMVC为我们提供的过滤器 HiddenHttpMethodFilter ，来设置发送DELETE或PUT请求
+
+```xml
+<!-- 配置web.xml配置文件 -->
+<filter>
+    <filter-name>映射关系名</filter-name>
+    <filter-class>org.springframework.web.filter.HiddenHttpMethodFilter</filter-class>
+</filter>
+<filter-mapping>
+    <filter-name>映射关系名</filter-name>
+    <url-pattern>/*</url-pattern>
+    <!-- /* 拦截所有的请求，因为所有的请求都有可能要使用 DELETE/PUT的请求方式 -->
+</filter-mapping>
+```
+
+> 仅仅配置 HiddenHttpMethodFilter 过滤器是不够的。观察源码：
+>
+> - 可以看到 doFilterInternal方法 中执行了放行方法，因此仔细分析该方法
+> - 若想要执行后续代码，则 `"POST".equals(request.getMethod())` 必须成立，因此，必须使用 `POST`
+> - 从 `request.getParameter(this.methodParam)` 可以知道，会获取一个名为 `_method` 的请求参数；观察后续代码，可以发现：只要该 _method 参数的值为【delete/put/patch】其中的一个，就会新创建一个该 _method 为请求方式的Request对象
+
+因此，还需要的额外条件：
+
+1. 发送请求的方式，必须为 POST
+2. 携带请求参数 _method，值可为 delete/put/patch
+
+```html
+<form action="请求路径" method="post">
+    <input type="hidden" name="_method" value="delete或put或patch">
+</form>
+```
+
+> 还有一个需要注意的：
+>
+> - 由于配置 HiddenHttpMethodFilter过滤器 后，源码中会获取请求参数，会间接导致 CharacterEncodingFilter过滤器 的字符集编码设置失效。因此，CharacterEncodingFilter过滤器 的设置应该在 HiddenHttpMethodFilter过滤器 的设置之前
+
+
+
+
+
+
+
+### XXX
+
+
 
 
 
