@@ -185,6 +185,9 @@
 `<form></form>`：表单标签
 
 - `action`：指定表单提交的地址（请求路径）
+
+  > 若没有指定提交的地址，则默认提交至当前页面
+
 - `method`：指定表单提交的方式
   - get：使用get的方式提交表单
   - post：使用post的方式提交表单
@@ -923,9 +926,11 @@ var res2 = reg2.test(str);		// false
 
 ##### 属性
 
-`srcElement`：获取响应事件源
+`srcElement`、`target`：获取响应事件的元素
 
-> 由于事件传递的影响，因此响应事件源有可能为触发响应事件的子类
+> srcElement 拥有事件的传递性，可以获取到响应事件的父元素（通过继续调用来获取）
+>
+> 而 target 不存在事件的传递性，每次获取到的都是响应事件的元素
 
 
 
@@ -939,6 +944,14 @@ var res2 = reg2.test(str);		// false
 
 - true：正常执行事件
 - false：事件取消
+
+
+
+
+
+##### 方法
+
+`preventDefault()`：取消默认行为（如：超链接的跳转、表单的提交 等）
 
 
 
@@ -1010,13 +1023,29 @@ var res2 = reg2.test(str);		// false
 
 
 
-
-
 ###### 方法
 
 `select()`：选择文本框中的文本
 
 `blur`：使失去焦点
+
+
+
+
+
+
+
+##### form标签
+
+###### 属性
+
+`action`：获取form表单提交的地址
+
+
+
+###### 方法
+
+`submit()`：提交表单
 
 
 
@@ -1220,7 +1249,8 @@ var res2 = reg2.test(str);		// false
             
           	// 定义方法
             "methods":{
-                "方法名":function(){
+    // methods中绑定的方法，其function()中的第一个参数，必定是触发当前方法的事件（event）对象
+                "方法名":function(){		
                     方法体;
                 }
             }

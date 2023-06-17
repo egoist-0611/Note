@@ -2135,7 +2135,7 @@ public void test2(){
 
 ### Validator
 
-```java
+```xml
 <dependency>
     <groupId>org.hibernate.validator</groupId>
     <artifactId>hibernate-validator</artifactId>

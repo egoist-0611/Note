@@ -801,7 +801,29 @@ public String 方法名(){
 
 
 
-### XXX
+
+
+## 访问静态资源
+
+> TomCat的配置文件web.xml中，有一个默认的 DefaultServlet ，是默认的用来处理请求的Servlet
+>
+> 该Servlet处理的是 / 下的所有资源，与我们所配置的SpringMVC的 DispatcherServlet 产生了冲突
+>
+> 因此，根据就近原则，工程中的 web.xml 下的 DispatcherServlet 生效，而默认的 DefaultServlet 失效
+>
+> 从而使我们所有的请求，都是 DispatcherServlet 在处理；当我们没有添加映射关系时，就会出现404错误
+>
+> 而静态资源的访问，是不需要添加映射关系的
+>
+> 我们就需要想办法让默认的 DefaultServlet 来处理访问静态资源的请求
+
+```xml
+<mvc:default-servlet-handler/>
+```
+
+- 添加该标签后，就会启用默认的 DefaultServlet
+- 当 SpringMVC 中的 DispatcherServlet（根据映射关系）找不到资源时，就会交给 DefaultServlet 来处理
+- 只有当 DefaultServlet （在 / 下进行查找）也找不到资源时，才会由 DefaultServlet 报出404错误
 
 
 
@@ -810,6 +832,240 @@ public String 方法名(){
 
 
 
+
+## HttpMessageConverter
+
+> 报文信息转换器，用来将请求报文转换为Java对象，或将Java对象转换为响应报文
+
+### 请求转换
+
+#### @RequestBody
+
+> 用于获取请求体
+>
+> 需要注意的是，POST才有请求体
+
+```java
+@RequestMapping("请求路径")
+public String 方法名(@RequestBody String 形参名){}
+```
+
+- 将获取到的请求体，存放到字符串类型的变量中
+
+
+
+
+
+#### RequestEntity
+
+> 可用于获取请求报文
+
+```java
+@RequestMapping("请求路径")
+public String 方法名(RequestEntity<String> 形参名) {
+    形参名.getHeaders();			// 获取请求头信息
+    形参名.getBody();				// 获取请求体信息
+}
+```
+
+> 比较值得注意的字段如：referer，获取页面跳转来源。可以用来分页时，删除数据后依旧跳转到原来页面
+
+
+
+
+
+
+
+### 响应转换
+
+#### @ResponseBody
+
+> 将内容响应给客户端
+
+1）响应普通文本内容
+
+```java
+@RequestMapping("请求路径")
+@ResponseBody
+public 返回值类型 方法名() {
+    return 内容;
+}
+```
+
+- 在添加了@ResponseBody注解后，返回的内容就不再是视图名称，而是要响应给客户端的文本内容
+
+
+
+2）响应JSON对象
+
+在满足了一定条件后，响应的java对象就会被自动转换为json对象，再响应给客户端
+
+1. 引入依赖：jackson-databind
+
+   ```xml
+   <dependency>
+       <groupId>com.fasterxml.jackson.core</groupId>
+       <artifactId>jackson-databind</artifactId>
+       <version>2.12.3</version>
+   </dependency>
+   ```
+
+2. 开启mvc的注解驱动
+
+   ```xml
+   <mvc:annotation-driven/>
+   ```
+
+3. 在控制器方法上声明了注解：`@ResponseBody`
+
+4. 将java对象直接作为返回值（经测试，该java对象中，至少需要提供 get、set 方法的）
+
+   ```java
+   @RequestMapping("请求路径")
+   @ResponseBody
+   public T 方法名(){
+       return new T();
+   }
+   ```
+
+
+
+3）@RestController：SpringMVC提供的一个复合注解，标识在控制器的类上，就相当于添加了 @Controller 注解，且该类中的所有方法都添加了 @ResponseBody 注解
+
+
+
+
+
+#### ResponseEntity
+
+> 用来设置响应报文
+
+##### 文件下载
+
+实现基本步骤：
+
+1. 获取文件部署后存放的路径
+2. 读取文件内容，并将文件内容作为响应体
+3. 设置响应头和响应状态码
+4. 响应报文
+
+```java
+<a th:href="@{请求路径}"></a>
+
+@RequestMapping("请求路径")
+public ResponseEntity<byte[]> 方法名(HttpSession session) throws IOException {
+    // 获取上下文对象，用于获取指定资源部署在服务器上后，存放的路径
+    ServletContext servletContext = session.getServletContext();
+    
+    // 获取资源存放在服务器上的路径
+    String realPath = servletContext.getRealPath("文件路径");
+    
+    // 获取文件输入流，读取文件内容
+    FileInputStream fis = new FileInputStream(realPath);
+    
+    // 创建数组，大小为：文件输入流中的总字节数
+    byte[] file = new byte[fis.available()];
+    
+    // 将文件输入流中的内容读取后，存放到数组中
+    fis.read(file);
+    
+    // 创建请求头
+    MultiValueMap<String, String> headers = new HttpHeaders();
+    headers.add("Content-Disposition", "attachment;filename=文件名");
+    
+    // 设置响应状态码
+    HttpStatus status = HttpStatus.OK;
+    
+    // 创建响应报文对象
+    ResponseEntity<byte[]> response = new ResponseEntity<>(file, headers, status);
+    
+    // 关闭资源
+    fis.close();
+    
+    // 响应报文
+    return response;
+}
+```
+
+
+
+
+
+
+
+##### 文件上传
+
+- 文件上传只能为POST或PUT请求，且必须指定 enctype 类型为 `multipart/form-data`
+
+  ```html
+  <form th:action="@{请求路径}" method="post" enctype="multipart/form-data">
+      <input type="file" name="picture">
+      <input type="submit" value="fileUp">
+  </form>
+  ```
+
+- 文件上传功能的实现，需要引入依赖：commons-fileupload
+
+  ```xml
+  <dependency>
+      <groupId>commons-fileupload</groupId>
+      <artifactId>commons-fileupload</artifactId>
+      <version>1.3.1</version>
+  </dependency>
+  ```
+
+- 通过请求参数名，可以获取到一个 MultipartFile 类型的形参。但是，默认上传的文件的类型是无法封装到MultipartFile类型中的，因此，我们需要在SpringMVC的配置文件中，配置文件上传解析器
+
+  ```xml
+  <bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver"/>
+  ```
+
+  > 该文件上传解析器，是通过id来获取的，因此，id值固定
+
+- 将上传的文件重命名，并转存到指定路径
+
+  ```java
+  @RequestMapping("请求路径")
+  public String 方法名(MultipartFile picture, HttpSession session) throws IOException {
+      // 获取上传的文件的文件名
+      String originalFilename = picture.getOriginalFilename();
+      
+      // 获取文件的后缀名
+      String suffixName = originalFilename.substring(originalFilename.lastIndexOf("."));
+      
+      // 获取文件在部署到服务器上时，存放的路径（若路径不存在，则创建）
+      ServletContext servletContext = session.getServletContext();
+      String realPath = servletContext.getRealPath("文件路径");
+      
+      // 根据获取到的路径，判断路径是否存在，不存在则创建
+      File file = new File(realPath);
+      if (!file.exists()) {
+          file.mkdir();
+      }
+      
+      // 利用UUID起随机名：上传文件名重复时，读取文件内容后，会覆盖掉原文件的内容
+      String randomName = UUID.randomUUID().toString().replaceAll("-", "");
+      
+      // 要转存到的 最终路径/文件名
+      String finalPath = realPath + File.separator + randomName + suffixName;
+      
+      // 调用MultipartFile中的方法，转存文件
+      picture.transferTo(new File(finalPath));
+      
+     	// 跳转到成功页面
+      return "视图名称";
+  }
+  ```
+
+
+
+
+
+
+
+
+
+## xxx
 
 
 
@@ -843,3 +1099,7 @@ public String 方法名(){
 
 1. 直接 `?参数名=值&参数名=值`
 2. 通过 `(参数名=值,参数名=值)` （若值为字符串，则要添加 `''` ）
+
+
+
+`th:field`：可用在单选、复选框等。将该属性获取到的值，与原属性value的值进行比对，若为true，则会设置当前 单选框/复选框 为选中状态
