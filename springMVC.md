@@ -1065,7 +1065,357 @@ public ResponseEntity<byte[]> 方法名(HttpSession session) throws IOException 
 
 
 
-## xxx
+## 拦截器
+
+> SpringMVC中的拦截器，可用于拦截控制方法的执行
+
+配置拦截器：
+
+1. 让拦截器类实现 HandlerInterceptor 接口
+
+   > 该接口内部有三个默认方法，用于设置拦截器所做的事情
+   >
+   > - preHandle：在控制器方法执行前执行。当返回值为true时，表示放行；当返回值为false时，表示拦截请求，不执行控制器方法
+   > - postHandle：控制器方法执行后执行
+   > - afterCompletion：视图渲染完成后执行
+
+2. 在SpringMVC配置文件中，配置拦截器，指明拦截器的拦截路径
+
+   ```xml
+   <mvc:interceptors>
+       
+       <!-- 方式一：配置使用的拦截器，该方式会拦截所有的请求 -->
+       <bean class="拦截器类的全类名"/>
+      	
+       <!-- 方式二：配置使用的拦截器，该方式也是拦截所有的请求 -->
+       <ref bean="拦截器类的id名"/>
+       
+       <!-- 方式三：配置使用的拦截器，该方式可设定拦截指定路径下的请求 -->
+       <mvc:interceptor>
+           <mvc:mapping path="拦截的路径"/>
+           <!-- 注意： /* 表示的仅仅是拦截一层目录，而 /** 才是拦截所有请求 -->
+           <mvc:exclude-mapping path="不拦截的路径"/>
+           <bean class="拦截器类的全类名"/>
+       </mvc:interceptor>
+       <!-- 经测试：是在拦截xxx的基础上，不拦截xxx -->
+       
+   </mvc:interceptors>
+   ```
+
+若存在多个拦截器，且拦截器返回值都为true：
+
+- preHandle方法的执行顺序，按拦截器配置的顺序执行
+- postHandle、afterCompletion方法的执行顺序，按拦截器配置的逆序执行
+
+若存在多个拦截器，其中存在返回值为false的：
+
+- preHandle方法按拦截器配置的顺序执行，当有拦截器执行完后返回false时，后续的拦截器不再执行
+- postHandle方法都不会被执行
+- afterCompletion方法按拦截器配置的逆序执行，当执行到之前返回false的拦截器使，结束所有拦截器的执行
+
+
+
+
+
+
+
+## 异常处理
+
+> SpringMVC中，处理控制器方法出现异常的接口是：HandlerExceptionResolver
+>
+> HandlerExceptionResolver接口的两个主要实现类：DefaultHandlerExceptionResolver、SimpleMappingExceptionResolver
+>
+> DefaultHandlerExceptionResolver是默认的处理异常的类，内部提供了丰富的处理异常的办法
+>
+> SimpleMappingExceptionResolver是为我们提供的自定义异常处理器
+
+使用方式：
+
+- 方式一：在SpringMVC配置文件中配置SimpleMappingExceptionResolver
+
+  ```xml
+  <bean class="org.springframework.web.servlet.handler.SimpleMappingExceptionResolver">
+      <property name="exceptionMappings">
+          <!-- 配置捕获的异常类型，Properties类型 -->
+          <props>
+              <!-- key是异常类型的全类名，<prop>标签间的文本是value值，作为跳转的视图名称 -->
+              <prop key="java.lang.Exception">error</prop>
+          </props>
+      </property>
+      <!-- 该属性是为了在页面输出错误信息，信息保存在value（对应key）指定的Request作用域中，可选 -->
+      <property name="exceptionAttribute" value="ex"/>
+  </bean>
+  ```
+
+- 方式二：使用注解的方式配置SimpleMappingExceptionResolver
+
+  ```java
+  // 定义该类作为异常处理的组件
+  @ControllerAdvice
+  public class 类名 {
+      
+      // 定义捕获的异常类型
+      @ExceptionHandler(异常类型.class)
+      
+      // Exception保存了错误信息，Model用来将错误信息保存到作用域中
+      public String 方法名(Exception 形参名, Model model) {
+          model.addAttribute("作用域名", 形参名);
+          
+          // 设置最终跳转到的页面的视图名
+          return "视图名称";
+      }
+  }
+  ```
+
+
+
+
+
+
+
+
+
+
+
+## 全注解
+
+### 替代xml文件
+
+> 在Servlet3.0中，容器会在类路径下，查找实现了 javax.servlet.ServletContainerInitializer 接口的类，若找得到，则会用它来配置Servlet容器
+>
+> Spring中，SpringServletContainerInitializer 接口实现了该类。但是，该类会去查找实现 WebApplicationInitializer 接口的类，并将配置Servlet容器的任务交由它来完成
+>
+> AbstractAnnotationConfigDispatcherServletInitializer 实现了该接口。因此，我们可以用一个类来继承该类，从而实现配置Servlet容器的功能
+
+```java
+public class 类名 extends AbstractAnnotationConfigDispatcherServletInitializer {
+    // 该方法用于指定Spring的配置类
+    @Override
+    protected Class<?>[] getRootConfigClasses() {
+        return new Class[]{Spring配置类.class};
+    }
+
+    // 该方法用于指定SpringMVC的配置类
+    @Override
+    protected Class<?>[] getServletConfigClasses() {
+        return new Class[]{SpringMVC配置类.class};
+    }
+
+    // 该方法用于指定DispatcherServlet前端控制器的拦截路径
+    @Override
+    protected String[] getServletMappings() {
+        return new String[]{"/"};
+    }
+    
+    // 该方法用于设置过滤器
+    @Override
+    protected Filter[] getServletFilters() {
+        
+        // 创建过滤器：字符编码集设置
+        CharacterEncodingFilter encodingFilter = new CharacterEncodingFilter();
+        encodingFilter.setEncoding("utf-8");
+        encodingFilter.setForceResponseEncoding(true);
+
+        // 创建过滤器：支持 DELETE/PUT 请求
+        HiddenHttpMethodFilter httpMethodFilter = new HiddenHttpMethodFilter();
+        
+        return new Filter[]{encodingFilter, httpMethodFilter};
+    }
+}
+```
+
+
+
+
+
+
+
+### SpringMVC配置类
+
+#### 开启组件扫描
+
+```java
+@Configuration			// 配置类标志
+@ComponentScan("包名")	// 开启组件扫描
+public class 类名 {}
+```
+
+
+
+
+
+#### 配置Thymeleaf视图解析器
+
+```java
+@Configuration			// 配置类标志
+public class SpringMVCClass {
+    
+    // 配置模板解析器
+    @Bean
+    public ITemplateResolver templateResolver() {
+        WebApplicationContext applicationContext = ContextLoader.getCurrentWebApplicationContext();
+        ServletContextTemplateResolver templateResolver = new ServletContextTemplateResolver(applicationContext.getServletContext());
+        templateResolver.setPrefix("/WEB-INF/前缀名");
+        templateResolver.setSuffix("后缀名");
+        templateResolver.setCharacterEncoding("utf-8");
+        templateResolver.setTemplateMode(TemplateMode.HTML);
+        return templateResolver;
+    }
+    
+    //生成模版引擎
+    @Bean
+    public SpringTemplateEngine templateEngine(ITemplateResolver templateResolver) {
+        SpringTemplateEngine templateEngine = new SpringTemplateEngine();
+        templateEngine.setTemplateResolver(templateResolver);
+        return templateEngine;
+    }
+    
+    // 生成视图解析器
+    @Bean
+    public ViewResolver viewResolver(SpringTemplateEngine templateEngine) {
+        ThymeleafViewResolver viewResolver = new ThymeleafViewResolver();
+        viewResolver.setCharacterEncoding("utf-8");
+        viewResolver.setTemplateEngine(templateEngine);
+        return viewResolver;
+    }
+}
+```
+
+
+
+
+
+#### 开启注解驱动
+
+```java
+@Configuration			// 配置类标志
+@EnableWebMvc			// 开启MVC注解驱动
+public class 类名 {}
+```
+
+
+
+
+
+#### 开启静态资源处理
+
+```java
+@Configuration			// 配置类标志
+// 让类实现WebMvcConfigurer接口，可以实现多种注解驱动功能
+public class 类名 implements WebMvcConfigurer {
+
+    // 开启DefaultServlet默认资源处理器
+    @Override
+    public void configureDefaultServletHandling(DefaultServletHandlerConfigurer configurer) {
+        configurer.enable();
+    }
+}
+```
+
+
+
+
+
+#### 配置拦截器
+
+```java
+@Configuration			// 配置类标志
+// 让类实现WebMvcConfigurer接口，可以实现多种注解驱动功能
+public class 类名 implements WebMvcConfigurer {
+    
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        // 1.创建一个拦截器对象
+        
+        // 2.设置拦截器
+        InterceptorRegistration registration = registry.addInterceptor(拦截器对象);
+        
+        // 3.配置拦截的路径
+        registration.addPathPatterns("拦截路径");
+       
+        // 4.配置不拦截的路径
+        registration.excludePathPatterns("不拦截路径");
+    }
+}
+```
+
+
+
+
+
+#### 配置视图控制器
+
+```java
+@Configuration			// 配置类标志
+// 让类实现WebMvcConfigurer接口，可以实现多种注解驱动功能
+public class 类名 implements WebMvcConfigurer {
+
+    @Override
+    public void addViewControllers(ViewControllerRegistry registry) {
+        registry.addViewController("映射路径").setViewName("视图名称");
+    }
+}
+```
+
+
+
+
+
+#### 开启文件上传功能
+
+```java
+@Configuration			// 配置类标志
+public class 类名 {
+    
+    // 配置文件上传解析器
+	@Bean
+    public MultipartResolver multipartResolver() {
+        return new CommonsMultipartResolver();
+    }
+}
+```
+
+
+
+
+
+#### 开启异常处理
+
+```java
+@Configuration			// 配置类标志
+// 让类实现WebMvcConfigurer接口，可以实现多种注解驱动功能
+public class 类名 implements WebMvcConfigurer {
+    
+    // 开盾对指定异常的自定义页面跳转
+    @Override
+    public void configureHandlerExceptionResolvers(List<HandlerExceptionResolver> resolvers) {
+        
+        // 创建异常处理对象
+        SimpleMappingExceptionResolver exceptionResolver = new SimpleMappingExceptionResolver();
+        
+        // 设置捕获的异常类型及跳转的页面
+        Properties properties = new Properties();
+        properties.setProperty("异常类型全类名", "视图名称");
+        exceptionResolver.setExceptionMappings(properties);
+        
+        // 获取异常信息，保存到作用域中
+        exceptionResolver.setExceptionAttribute("keyName");
+
+        resolvers.add(exceptionResolver);
+    }
+```
+
+
+
+
+
+
+
+
+
+### XXX
+
+
 
 
 
