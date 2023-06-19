@@ -1413,7 +1413,65 @@ public class 类名 implements WebMvcConfigurer {
 
 
 
-### XXX
+## SpringMVC执行流程
+
+### SpringMVC的常用组件
+
+1. DispatcherServlet：前端控制器，由框架提供
+   - 统一处理请求和响应，是整个流程控制的中心，由它来调用其他组件处理用户的请求
+2. HandlerMapping：处理器映射器，由框架提供
+   - 根据请求的URL、Method等信息，查找对应的Handler（控制器方法）
+3. Handler：处理器，由工程师开发
+   - 在DispatcherServlet的控制下，由Handler来对具体的用户请求进行处理
+4. HandlerAdapter：处理器适配器，由框架提供
+   - 通过HandlerAdapter来执行处理器（控制器方法）
+5. ViewResolver：视图解析器，由框架提供
+   - 进行视图解析，得到相应的视图（如ThymeleafView、InternalResourceView等）
+6. View：视图页面
+   - 将模型数据通过页面展示给用户
+
+
+
+
+
+
+
+### 执行流程
+
+1. 用户向服务器发送请求，请求被SpringMVC前端控制器DispatcherServlet所捕获
+
+2. DispatcherServlet对请求的URL进行了解析，得到请求资源标识符（URI）后，判断请求的URI所对应的映射
+
+   - 若资源不存在，则再判断是否配置了DefaultServlet来处理：
+     - 若没有配置，则控制台报404错误
+     - 若有配置，但是依旧找不到资源，则由页面报404错误
+
+   （若资源存在）
+
+3. 根据该URI，调用HandlerMapping来获取该Handler配置的所有相关对象（即：Handler对象、Handler对象的拦截器、Handler对象配置的拦截器的索引），最后以HandlerExecutionChain执行链对象的形式返回
+
+4. DispatcherServlet根据获取到的Handler，来选择一个合适的HandlerAdapter
+
+5. 开始执行拦截器的preHandler方法
+
+6. 提取Request中的数据，填充Handler入参，执行Handler方法，处理请求。在此过程中，会根据配置做一些额外工作：
+
+   - HttpMessageConveter：将请求信息（如：JSON、XML等）转换为对象，将对象转换为响应信息
+   - 数据转换：请求信息中的参数等进行数据转换（如：String转换为Integer等）
+   - 数据格式化：对请求信息进行数据格式化（如：将字符串转换为格式化数字或格式化日期等）
+   - 数据验证：验证数据的有效性、合法性，将验证结果存储到BindingResult或Error中
+
+7. Handler执行完成后，向DispatcherServlet返回一个ModelAndView对象
+
+8. 执行拦截器的postHandler方法
+
+9. 判断返回的ModelAndView是否存在异常，若存在则启用HandlerExceptionResolver来进行异常处理
+
+10. 选择一个合适的ViewResolver来对ModelAndView进行视图解析，并根据Model和View来渲染视图
+
+11. 视图渲染后执行拦截器的afterCompletion方法
+
+12. 将渲染结果返回给客户端
 
 
 
@@ -1425,7 +1483,7 @@ public class 类名 implements WebMvcConfigurer {
 
 
 
-## Thymeleaf语法
+## Thymeleaf语法补充
 
 `@{}`：在匹配到绝对路径时，会自动补充上下文路径（Application Context）
 
