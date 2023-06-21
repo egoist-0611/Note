@@ -186,7 +186,9 @@ MyBatis（原名 iBatis），是一个基于Java的持久层框架，包括了SQ
    </log4j:configuration>
    ```
 
-   
+3. 配置为IDEA中的模板：Settings --> Editor --> File and Code Templates --> 设置模板名、模版默认后缀名、Enable Live Templates 动态光标功能（`#[[$Title$]]#` 光标从此开始、`#[[$END$]]#` 光标从此结尾）
+
+
 
 
 
@@ -246,6 +248,8 @@ MyBatis（原名 iBatis），是一个基于Java的持久层框架，包括了SQ
 
 ### 查询
 
+#### 基本介绍
+
 - 接口（XxxMapper）
 
   ```java
@@ -272,6 +276,174 @@ MyBatis（原名 iBatis），是一个基于Java的持久层框架，包括了SQ
   - 可以使用 resultType，也可以使用 resultMap，两者的区别是：
     - resultType 是默认的映射关系，即：数据载体属性名与字段名需保持一致
     - resultMap 可以自定义映射关系
+
+
+
+
+
+#### 查询单条数据
+
+##### ① 通过实体类对象接收
+
+```java
+public interface UserMapper {
+    User getUserByIdOnPojo(@Param("id")Integer id);
+}
+```
+
+```xml
+<mapper namespace="com.atguigu.mapper.UserMapper">
+    <select id="getUserByIdOnPojo" resultType="com.atguigu.pojo.User">
+        SELECT * FROM user WHERE id = #{id}
+    </select>
+</mapper>
+```
+
+- 返回值类型为具体的pojo对象
+
+
+
+
+
+##### ② 通过List集合接收
+
+```java
+public interface UserMapper {
+    List<User> getUserByIdOnList(@Param("id") Integer id);
+}
+```
+
+```xml
+<mapper namespace="com.atguigu.mapper.UserMapper">
+    <select id="getUserByIdOnList" resultType="com.atguigu.pojo.User">
+        SELECT * FROM user WHERE id = #{id}
+    </select>
+</mapper>
+```
+
+- 返回的类型为pojo对象所构成的List集合（但仅有单条数据）
+
+
+
+
+
+##### ③ 通过Map集合接收
+
+```java
+public interface UserMapper {
+    Map<String, Object> getUserByIdOnMap(@Param("id") Integer id);
+}
+```
+
+```xml
+<mapper namespace="com.atguigu.mapper.UserMapper">
+    <select id="getUserByIdOnMap" resultType="Map">
+        SELECT * FROM user WHERE id = #{id}
+    </select>
+</mapper>
+```
+
+- 返回的类型为Map集合，以查询到的结果中的 字段名为key，字段值为value
+- resultType 中声明的返回值类型为 Map，是使用了默认提供的类名别名
+
+
+
+
+
+
+
+#### 查询多条数据
+
+##### ① 通过 List\<pojo> 接收
+
+```java
+public interface UserMapper {
+    List<User> getAllUserOnListPojo();
+}
+```
+
+```xml
+<mapper namespace="com.atguigu.mapper.UserMapper">
+    <select id="getAllUserOnListPojo" resultType="com.atguigu.pojo.User">
+        SELECT * FROM user
+    </select>
+</mapper>
+```
+
+- 返回的类型为pojo对象所构成的List集合
+
+
+
+
+
+##### ② 通过 List\<Map> 接收
+
+```java
+public interface UserMapper {
+    List<Map<String,Object>> getAllUserOnListMap();
+}
+```
+
+```xml
+<mapper namespace="com.atguigu.mapper.UserMapper">
+    <select id="getAllUserOnListMap" resultType="Map">
+        SELECT * FROM user
+    </select>
+</mapper>
+```
+
+- 返回的类型为Map集合所构成的List集合。其中Map集合中的key为查询的结果中的字段名，value为查询的结果中的字段值
+- 查询到多条记录，若仅用单个Map集合来接收，就会出现 TooManyResultsException 的异常
+
+
+
+
+
+##### ③ 通过 Map\<Map> 接收
+
+```java
+public interface UserMapper {
+    @MapKey("id")
+    Map<String,Map<String,Object>> getAllUserOnMapMap();
+}
+```
+
+```xml
+<mapper namespace="com.atguigu.mapper.UserMapper">
+    <select id="getAllUserOnMapMap" resultType="Map">
+        SELECT * FROM user
+    </select>
+</mapper>
+```
+
+- 我们是不能直接通过 Map\<Map> 的方式存储结果的，因为我们查询到的字段名和字段值，作为内存Map的key和value，而每一行数据，只能作为外层Map的key或value。因此，我们需要为外层Map指定一个key
+- 通过 `@MapKey("字段名")` 的方式，我们可以指定某个字段的值作为（外层）Map的key
+- 通常使用主键作为外层Map的key，因为这样不会重复（在Map中，重复的key的value会被后者替换）
+
+
+
+
+
+
+
+#### 查询复合函数
+
+```java
+public interface UserMapper {
+    Integer getUserCount();
+}
+```
+
+```xml
+<mapper namespace="com.atguigu.mapper.UserMapper">
+    <select id="getUserCount" resultType="Integer">
+        SELECT COUNT(*) FROM user
+    </select>
+</mapper>
+```
+
+- 查询的是 COUNT()、MAX() 等函数时，返回值类型由方法返回值来决定
+- resultType 中声明的返回值类型为 Integer，是由函数执行后返回的值决定的，且是默认提供的类名的别名
 
 
 
@@ -365,6 +537,183 @@ MyBatis的核心配置文件中标签的定义，是需要遵循一定的顺序�
    ```
 
    
+
+
+
+
+
+
+
+## 获取参数
+
+### 两种方式
+
+MyBatis中，获取调用接口方法时传递的参数的方式有两种：`${}` 和 `#{}`
+
+- ${}：本质上是在获取到值后，进行字符串的拼接（因此需要手动添加 `''`）如：
+
+  ````xml
+  SELECT * FROM user WHERE name = ${username}
+  <!--
+  	转换后相当于：SELECT * FROM user WHERE name = Tom
+  		需要改为 'Tom' 使SQL语句合法，即改为：'${username}'
+  -->
+  ````
+
+- #{}：本质上是在获取到值后，对占位符内容进行填充，如：
+
+  ```xml
+  SELECT * FROM user WHERE name = #{username}
+  <!-- 
+  	转换后相当于：SELECT * FROM user WHERE name = ?
+  		? 会被最终填充为 'Tom'
+  -->
+  ```
+
+
+
+
+
+### 获取当个参数
+
+若接口中的方法的参数为单个，则可以直接使用 任意名称 获取到参数的值
+
+> 以 #{} 举例：
+>
+> ```xml
+> public interface UserMapper {
+>    	User getUserById(Integer id);
+> }
+> 
+> <mapper namespace="com.atguigu.mapper.UserMapper">
+>     <select id="getUserById" resultType="com.atguigu.pojo.User">
+>         SELECT * FROM user WHERE id = #{id}
+>         <!-- #{任意名称} 都可获取到传递的参数值 -->
+>     </select>
+> </mapper>
+> ```
+
+
+
+
+
+
+
+### 获取多个参数
+
+#### 使用内置Map集合
+
+若接口中的方法的参数为多个，此时MyBatis会自动将这些参数存放到一个Map集合中，并以两种方式存储：
+
+1. 以 `arg0`、`arg1` ... 为key，以参数值为value进行存储
+2. 以 `param1`、`param2` ... 为key，以参数值为value进行存储
+
+通过固定的key来获取到value值
+
+> 以 #{} 举例：
+>
+> ```xml
+> public interface UserMapper {
+>     User getUserByNameAge(String name,Integer age);
+> }
+> 
+> <mapper namespace="com.atguigu.mapper.UserMapper">
+>     <select id="getUserByNameAge" resultType="com.atguigu.pojo.User">
+> 		SELECT * FROM user WHERE name = #{arg0} AND age = #{arg1}
+>         <!-- 通过了 #{arg0}、#{arg1} 获取到了传递的 参数1、参数2 -->
+>     </select>
+> </mapper>
+> ```
+
+
+
+
+
+#### 自定义Map集合
+
+若接口方法中传递的是一个Map集合，则可以 直接通过key 来获取对应的value
+
+> 以 #{} 举例：
+>
+> ```java
+> public interface UserMapper {
+>     User getUserByMap(Map<String,Object> map);
+> }
+> 
+> <mapper namespace="com.atguigu.mapper.UserMapper">
+>     <select id="getUserByMap" resultType="com.atguigu.pojo.User">
+>         SELECT * FROM user WHERE name = #{name} AND age = #{age}
+> 		// 传递的是Map集合，内部有两个key：name、age，通过key获取到对应的value值
+>     </select>
+> </mapper>
+>         
+> public void test(){
+> 	InputStream is = Resources.getResourceAsStream("mybatis-config.xml");
+>     SqlSession sqlSession = new SqlSessionFactoryBuilder().build(is).openSession();
+>     UserMapper mapper = sqlSession.getMapper(UserMapper.class);
+> 	HashMap<String, Object> map = new HashMap<>();
+> 	map.put("name","Amy");		// 存的第一个key和value
+> 	map.put("age",19);			// 存的第二个key和value
+> 	User user = mapper.getUserByMap(map);		// 将Map作为参数传递
+> 	System.out.println(user);        
+> }
+> ```
+
+
+
+
+
+#### 使用@Param注解
+
+使用@Param注解，为传递的参数声明指定的名称，通过 指定的名称 来获取对应的参数值
+
+- 也可以使用 `param1`、`param2` ... ，以固定的key来获取对应的value
+
+> 使用 #{} 举例：
+>
+> ```java
+> public interface UserMapper {
+>     // 通过注解指定获取参数时使用的名称
+> 	User getUserByAnnotation(@Param("name")String name,@Param("age")Integer age);    
+> }
+> 
+> <mapper namespace="com.atguigu.mapper.UserMapper">
+> 	<select id="getUserByAnnotation" resultType="com.atguigu.pojo.User">
+>         SELECT * FROM user WHERE name = #{name} AND age = #{age}
+>     </select>
+> </mapper>
+> ```
+
+
+
+
+
+#### 使用实体类类型
+
+若接口方法中的参数是实体类类型，则可以直接通过 属性名 来获取对应的属性值
+
+> 使用 #{} 举例：
+>
+> ```xml
+> public interface UserMapper {
+> 	void insertUser(User user);
+> }
+> 
+> <mapper namespace="com.atguigu.mapper.UserMapper">
+> 	<insert id="insertUser">
+>         INSERT INTO user(name,age,sex,phone) VALUES(#{name},#{age},#{sex},#{phone})
+>     	<!-- 通过属性名获取到封装在实体类属性中的值 -->
+>     </insert>
+> </mapper>
+> ```
+
+
+
+
+
+
+
+
 
 
 
