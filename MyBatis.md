@@ -451,6 +451,72 @@ public interface UserMapper {
 
 
 
+### 特殊SQL语句
+
+1. 模糊查询：
+
+   ```xml
+   <mapper namespace="接口全类名">
+       <select id="方法名" resultType="数据载体全类名">
+       <!--
+   		方式一：SELECT * FROM user WHERE name Like "%"#{参数名}"%"
+   
+   		方式二：SELECT * FROM user WHERE name Like '%${参数名}%'
+   	-->    
+       </select>
+   </mapper>
+   ```
+
+2. 批量删除：
+
+   ```xml
+   <mapper namespace="接口全类名">
+       <delete id="方法名">
+           DELETE FROM 表名 WHERE 字段名 in (${参数名})
+           <!-- 传入的参数应为：【1,2】这种类型的字符串 -->
+       </delete>
+   </mapper>
+   ```
+
+3. 动态设置表名：
+
+   ```xml
+   <mapper namespace="接口全类名">
+       <select id="方法名" resultType="数据载体全类名">
+           SELECT * FROM ${参数名} WHERE 字段名 = 值;
+       </select>
+   </mapper>
+   ```
+
+4. 获取自增长主键：
+
+   ```xml
+   <mapper namespace="接口全类名">
+   	<insert id="方法名" useGeneratedKeys="true" keyProperty="属性名">
+       <!--
+   		useGeneratedKeys="true"：开启获取自增长主键的功能
+   		keyProperty="字段名"：设置存放自增长主键的字段
+    	-->
+           INSERT INTO 表名(字段名) VALUES(#{属性名})
+       </insert>
+   </mapper>
+   ```
+
+   - 获取自增长主键的办法：
+
+     1. 使用实体类的方式传递参数，并留出一个属性存放自增长主键
+     2. 开启了获取自增长主键，并设置了存放自增长主键的属性
+
+     在执行完 INSERT 语句后，就会将新增的数据所产生的自增长主键，存放到指定的属性中
+
+
+
+
+
+
+
+
+
 
 
 ## 核心配置文件
@@ -464,7 +530,16 @@ MyBatis的核心配置文件中标签的定义，是需要遵循一定的顺序�
    <!-- 使用 ${key名} 获取对应的value值 -->
    ```
 
-2. typeAliases：设置select查询结果后，存储的数据载体的类型的别名
+2. settings：添加一些全局配置
+
+   ```xml
+   <settings>
+   	<setting name="mapUnderscoreToCamelCase" value="true"/>
+       <!-- 添加配置：将下划线更改为驼峰（可用于参数映射） -->
+   </settings>
+   ```
+   
+3. typeAliases：设置select查询结果后，存储的数据载体的类型的别名
 
    ```xml
    <typeAliases>
@@ -482,7 +557,7 @@ MyBatis的核心配置文件中标签的定义，是需要遵循一定的顺序�
    </typeAliases>
    ```
 
-3. environments：配置多个连接数据库的环境
+4. environments：配置多个连接数据库的环境
 
    - default：设置默认使用的数据库环境，值为具体的数据库环境的 id值
 
@@ -518,7 +593,7 @@ MyBatis的核心配置文件中标签的定义，是需要遵循一定的顺序�
    </environments>
    ```
 
-4. mappers：引入映射文件
+5. mappers：引入映射文件
 
    ```xml
    <mappers>
@@ -690,7 +765,7 @@ MyBatis中，获取调用接口方法时传递的参数的方式有两种：`${}
 
 #### 使用实体类类型
 
-若接口方法中的参数是实体类类型，则可以直接通过 属性名 来获取对应的属性值
+若接口方法中的参数是 一个实体类类型，则可以直接通过 属性名 来获取对应的属性值
 
 > 使用 #{} 举例：
 >
@@ -712,6 +787,44 @@ MyBatis中，获取调用接口方法时传递的参数的方式有两种：`${}
 
 
 
+
+
+
+### 参数映射
+
+当字段名与属性名不一致时，有三种解决方案：
+
+1. 查询字段时，为字段重新设置 与属性名同名 的别名
+
+   ```xml
+   <mapper namespace="接口全类名">
+       <select id="方法名" resultType="数据载体全类名">
+           SELECT 字段名 别名 FROM 表名;
+       </select>
+   </mapper>
+   ```
+
+2. 在核心配置文件添加以下配置，使所有的 下划线（xx_yy）更改为 驼峰（xxYy）
+
+   ```xml
+   <settings>
+       <setting name="mapUnderscoreToCamelCase" value="true"/>
+   </settings>
+   ```
+
+3. 使用resultMap的方式设置属性名与字段名间的映射关系
+
+   ```xml
+   <mapper namespace="接口全类名">
+       <resultMap id="resultMap标识id" type="数据载体全类名">
+           <id property="属性名" column="主键名"/>
+           <result property="属性名" column="字段名"/>
+       </resultMap>
+       <select id="方法名" resultMap="resultMap标识id">
+           SELECT * FROM 表名
+       </select>
+   </mapper>
+   ```
 
 
 
