@@ -536,6 +536,9 @@ MyBatis的核心配置文件中标签的定义，是需要遵循一定的顺序�
    <settings>
    	<setting name="mapUnderscoreToCamelCase" value="true"/>
        <!-- 添加配置：将下划线更改为驼峰（可用于参数映射） -->
+       
+      	<setting name="lazyLoadingEnabled" value="true"/>
+       <!-- 添加配置：开启延迟加载功能 -->
    </settings>
    ```
    
@@ -740,7 +743,7 @@ MyBatis中，获取调用接口方法时传递的参数的方式有两种：`${}
 
 #### 使用@Param注解
 
-使用@Param注解，为传递的参数声明指定的名称，通过 指定的名称 来获取对应的参数值
+使用@Param注解，为传递的参数声明指定的名称，通过 指定的名称 来获取对应的参数值（推荐使用）
 
 - 也可以使用 `param1`、`param2` ... ，以固定的key来获取对应的value
 
@@ -765,7 +768,7 @@ MyBatis中，获取调用接口方法时传递的参数的方式有两种：`${}
 
 #### 使用实体类类型
 
-若接口方法中的参数是 一个实体类类型，则可以直接通过 属性名 来获取对应的属性值
+若接口方法中的参数是 一个实体类类型，则可以直接通过 属性名 来获取对应的属性值（推荐使用）
 
 > 使用 #{} 举例：
 >
@@ -790,7 +793,9 @@ MyBatis中，获取调用接口方法时传递的参数的方式有两种：`${}
 
 
 
-### 参数映射
+## 参数映射
+
+### 处理属性名和字段名
 
 当字段名与属性名不一致时，有三种解决方案：
 
@@ -832,3 +837,426 @@ MyBatis中，获取调用接口方法时传递的参数的方式有两种：`${}
 
 
 
+
+
+### 多对一关系
+
+> 数据库中存在数据是多对一的关系时，数据载体类中也需要使用 实体类属性 表示这种关系
+>
+> ```java
+> // 多
+> public class Empartment{
+>     private int eid;
+>     private String empName;
+>     private int age;
+>     private Department dept;
+> }
+> ```
+>
+> ```java
+> // 一
+> public class Department{
+>     private int did;
+>     private String deptName;
+> } 
+> ```
+
+
+
+方式一（多表关联查询）：通过 `实体类.属性` 的方式，直接为属性赋值（级联方式）
+
+```xml
+public interface MoreThenOneMapper {
+    List<Employee> getAllEmp();
+}
+
+<mapper namespace="com.atguigu.mapper.MoreThenOneMapper">
+    <resultMap id="methodOne" type="com.atguigu.pojo.Employee">
+        <id property="eid" column="eid"/>
+        <result property="empName" column="emp_name"/>
+        <result property="age" column="age"/>
+        
+        <!-- 直接为实体类中的属性赋值 -->
+        <result property="dept.did" column="did"/>
+        <result property="dept.deptName" column="dept_name"/>
+        
+    </resultMap>
+    <select id="getAllEmp" resultMap="methodOne">
+        SELECT * FROM employee e LEFT JOIN department d ON e.did = d.did
+    </select>
+</mapper>
+```
+
+
+
+方式二（多表关联查询）：通过association，设置需要被赋值的实体类属性中的属性与其对应的字段
+
+```xml
+public interface MoreThenOneMapper {
+    List<Employee> getAllEmp();
+}
+
+<mapper namespace="com.atguigu.mapper.MoreThenOneMapper">
+    <resultMap id="methodTwo" type="com.atguigu.pojo.Employee">
+        <id property="eid" column="eid"/>
+        <result property="empName" column="emp_name"/>
+        <result property="age" column="age"/>
+        
+        <!-- 通过association， 设置需要被赋值的实体类属性的中的属性名及其对应的字段 -->
+        <association property="dept" javaType="com.atguigu.pojo.Department">
+            <id property="did" column="did"/>
+            <result property="deptName" column="dept_name"/>
+        </association>
+        
+    </resultMap>
+    <select id="getAllEmp" resultMap="methodOne">
+        SELECT * FROM employee e LEFT JOIN department d ON e.did = d.did
+    </select>
+</mapper>
+```
+
+
+
+方式三（多步查询）：先查询出所有的信息，从中获取到外键字段，再通过外键字段去查询，从而获取到所有信息
+
+```xml
+public interface MoreThenOneMapper {
+    // 第一步：查询所有的信息
+	List<Employee> getAllEmp();
+
+    // 第二步：根据查询到的外键字段，去查询该字段所对应的另一张表中的信息
+    Department getDepartmentById(@Param("did")Integer did);
+}
+
+<mapper namespace="com.atguigu.mapper.MoreThenOneMapper">
+	<resultMap id="methodThreeOfEmp" type="com.atguigu.pojo.Employee">
+        <id property="eid" column="eid"/>
+        <result property="empName" column="emp_name"/>
+        <result property="age" column="age"/>
+        <!-- 获取其中的外键字段，根据外键字段去查询另一张表中的信息 -->
+        <association property="dept" 
+                     select="com.atguigu.mapper.MoreThenOneMapper.getDepartmentById" 
+                     column="did"/>
+    </resultMap>
+    <select id="getAllEmp" resultMap="methodThreeOfEmp">
+        SELECT * FROM employee
+    </select>
+    
+    <resultMap id="methodThreeOfDept" type="com.atguigu.pojo.Department">
+        <id property="did" column="did"/>
+        <result property="deptName" column="dept_name"/>
+    </resultMap>
+    <select id="getDepartmentById" resultMap="methodThreeOfDept">
+        SELECT * FROM department WHERE did = #{did}
+    </select>
+</mapper>
+```
+
+association标签中：
+
+- select属性：根据该唯一标识（接口全类名.方法名），去执行对应的接口方法
+- column属性：关联字段、查询字段
+
+
+
+
+
+
+
+### 一对多关系
+
+> 数据库中存在数据是一对多的关系时，数据载体类中也需要使用 实体类属性集合 表示这种关系
+>
+> ```java
+> // 多
+> public class Employee{
+>     private int eid;
+>     private String empName;
+>     private int age;
+> }
+> ```
+>
+> ```java
+> // 一
+> public class Dept{
+>     private int did;
+>     private String deptName;
+> 	private List<Employee> employees;
+> } 
+> ```
+
+方式一（多表关联查询）：通过association，设置需要被赋值的实体类属性集合中，每个实体类的属性与其对应的字段
+
+```xml
+public interface MoreThenOneMapper {
+    List<Department> getAllDept();
+}
+
+<mapper namespace="com.atguigu.mapper.OneThenMoreMapper">
+    <resultMap id="methodOne" type="com.atguigu.pojo.Department">
+        <id property="did" column="did"/>
+        <result property="deptName" column="dept_name"/>
+        
+        <!-- collection是用来表示集合，ofType是集合中每个实体类的类型 -->
+        <collection property="employees" ofType="com.atguigu.pojo.Employee">
+            <id property="eid" column="eid"/>
+            <result property="empName" column="emp_name"/>
+            <result property="age" column="age"/>
+        </collection>
+        <!-- 为实体类集合类型的属性 中的每个实体类 的属性赋值 -->
+        
+    </resultMap>
+    <select id="getAllDept" resultMap="methodOne">
+        SELECT * FROM department d LEFT JOIN employee e ON d.did = e.did
+    </select>
+</mapper>
+```
+
+
+
+方式二（多步查询）：先查询出所有的信息，从中获取到与主表关联的字段，再通过该字段去查询主表，从而获取到相关的所有信息
+
+```xml
+public interface OneThenMoreMapper {
+    // 第一步：查询所有的信息
+	List<Department> getAllDept();
+
+    // 第二步：根据与主表的绑定的字段，获取主表中的信息
+    List<Employee> getEmployeeByDid(@Param("did")Integer did);
+}
+
+<mapper namespace="com.atguigu.mapper.OneThenMoreMapper">
+    <resultMap id="methodTwoOfSecond" type="com.atguigu.pojo.Employee">
+        <id property="eid" column="eid"/>
+        <result property="empName" column="emp_name"/>
+        <result property="age" column="age"/>
+    </resultMap>
+    <select id="getEmployeeByDid" resultMap="methodTwoOfSecond">
+        SELECT * FROM employee WHERE did = #{did}
+    </select>
+    
+    <resultMap id="methodTwoOfFirst" type="com.atguigu.pojo.Department">
+        <id property="did" column="did"/>
+        <result property="deptName" column="dept_name"/>
+        <!-- 根据唯一标识调用指定的接口方法，查询并关联条件为did的信息 -->
+        <association property="employees" 
+                     select="com.atguigu.mapper.OneThenMoreMapper.getEmployeeByDid" 
+                     column="did"/>
+    </resultMap>
+    <select id="getAllDept" resultMap="methodTwoOfFirst">
+        SELECT * FROM department
+    </select>
+</mapper>
+```
+
+
+
+
+
+
+
+
+
+### 延迟加载
+
+使用分步查询时，每一步可以算是独立的。因此，当开启了延迟加载后，系统会自动根据所需去查询对应的数据，而不是每次都去执行所有步骤
+
+- 在核心配置文件中添加全局配置，开启延迟加载功能
+
+  ```xml
+  <settings>
+      <setting name="lazyLoadingEnabled" value="true"/>
+  </settings>
+  ```
+
+若想要某个SQL语句的执行不需要进行延迟加载，则可以在 association标签中添加属性：`fetchType` ，设置属性值为 `eager`，使其立即加载，但仅在开启了延迟加载功能后生效（`lazy`为延迟加载）
+
+
+
+
+
+
+
+
+
+
+
+## 动态SQL
+
+### if 标签
+
+```xml
+<mapper namespace="com.atguigu.mapper.TapMapper">
+    <select id="getEmpByNameAge" resultType="com.atguigu.pojo.Employee">
+        SELECT * FROM employee WHERE 1=1
+        <if test="empName!=null and empName!=''">
+            AND emp_name = #{empName}
+        </if>
+        <if test="age!=null and age!=''">
+            AND age = #{age}
+        </if>
+    </select>
+</mapper>
+```
+
+- if标签中，test属性必须指定：若满足条件，则会在SQL语句中拼接上标签中的内容
+
+  - test中可以直接获取方法的参数值
+  - 不能使用&&或||，可以使用 `and` 或 `or` 代替
+
+- 若不添加 1=1，则 AND emp_name 中的AND必须去掉。但是，当emp_name的条件不满足，age条件满足时，依旧会出现问题
+
+  且当两者都不成立时，还会出现多出个WHERE的问题
+
+
+
+
+
+### where 标签
+
+```xml
+<mapper namespace="com.atguigu.mapper.TapMapper">
+    <select id="getEmpByNameAge" resultType="com.atguigu.pojo.Employee">
+        SELECT * FROM employee
+        <where>
+            <if test="empName!=null and empName!=''">
+                emp_name = #{empName}
+            </if>
+            <if test="age!=null and age!=''">
+                AND age = #{age}
+            </if>
+        </where>
+    </select>
+</mapper>
+```
+
+- 当 where 标签中存在内容时，会自动拼接上where关键字，并作为 where 的条件出现；当 where 标签中不存在内容时，该标签不会进行任何操作；当 where 关键字后有 and 或 or 时，会自动将其省略
+
+
+
+
+
+### trim 标签
+
+```xml
+<mapper namespace="com.atguigu.mapper.TapMapper">
+    <select id="getEmpByNameAge" resultType="com.atguigu.pojo.Employee">
+        SELECT * FROM employee
+        <trim prefix="WHERE" suffixOverrides="and|or">
+            <if test="empName!=null and empName!=''">
+                emp_name = #{empName} AND
+            </if>
+            <if test="age!=null and age!=''">
+                age = #{age} AND
+            </if>
+        </trim>
+    </select>
+</mapper>
+```
+
+- 当 trim 标签中存在内容时，会在拼接到SQL语句前，添加上 prefix 中的内容，并在最终 trim 标签结束后，若末尾为 suffixOverrides 中的内容，则删除该部分内容
+- 当 trim 标签不存在内容时，则不会进行任何操作
+
+
+
+
+
+### choose - when - otherwise 标签
+
+```xml
+<mapper namespace="com.atguigu.mapper.TapMapper">
+    <select id="getEmpByNameAge" resultType="com.atguigu.pojo.Employee">
+        SELECT * FROM employee
+        <where>
+            <choose>
+                <when test="empName!=null and empName!=''">
+                    emp_name = #{empName}
+                </when>
+                <when test="age!=null and age!=''">
+                    age = #{age}
+                </when>
+                <otherwise>
+                    eid = 1
+                </otherwise>
+            </choose>
+        </where>
+    </select>
+</mapper>
+```
+
+- choose - when - otherwise 相当于 if - elseif -else，当 when 中有一个满足时，则后续不再执行；当 when 中所有都不满足时，则执行 otherwise
+
+
+
+
+
+### foreach 标签
+
+```xml
+<mapper namespace="com.atguigu.mapper.TapMapper">
+	<!-- 批量删除 -->
+    <delete id="deleteMoreByArray">
+        DELETE FROM employee WHERE eid IN
+        <foreach collection="eids" item="eid" separator="," open="(" close=")">
+            #{eid}
+        </foreach>
+    </delete>
+
+	<!-- 批量插入 -->
+    <insert id="insertMoreByList">
+        INSERT INTO employee VALUES
+        <foreach collection="emps" item="emp" separator=",">
+            (NULL,#{emp.empName},#{emp.age},#{emp.sex},#{emp.phone},NULL)
+            <!-- 通过遍历获取集合中的每个实体类，通过 . 来访问实体类中的属性 -->
+        </foreach>
+    </insert>
+</mapper> 
+```
+
+- foreach 循环指定内容
+  - collection：要循环的数组或集合
+  - item：存储循环值的变量
+  - separator：循环内容后，以xxx作为分隔符（分隔符左右有用空格隔开）
+  - open：循环前输出的内容
+  - close：循环结束后输出的内容
+
+
+
+
+
+### sql 标签
+
+```xml
+<mapper namespace="com.atguigu.mapper.TapMapper">
+	<sql id="empColumnName">eid,emp_name,age,sex,phone</sql>-->
+    <select id="getAllEmployee" resultType="Employee">
+		SELECT <include refid="empColumnName"/> FROM employee-->
+    </select>
+</mapper>
+```
+
+- 使用 sql 标签，将重复使用的内容提取出来。在需要用到时，使用 include 标签进行导入
+
+
+
+
+
+
+
+
+
+## 缓存机制
+
+1. 一级缓存（默认）：在同一个SqlSession中，查询的数据会被缓存；当下次查询相同的数据是，会直接从缓存中获取，而不会从数据库中查询
+
+   - 一级缓存失效的原因：
+
+     ① 不同的SqlSession
+
+     ② 同一个SqlSession，但查询的条件不同
+
+     ③ 同一个SqlSession，但两次查询期间执行了任意一次增删改操作（无论是否提交事务）
+
+     ④ 同一个SqlSession，但手动清空了缓存（调用 `SqlSession对象.clearCache()` 方法）
+
+2. 二级缓存：
