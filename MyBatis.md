@@ -560,7 +560,16 @@ MyBatis的核心配置文件中标签的定义，是需要遵循一定的顺序�
    </typeAliases>
    ```
 
-4. environments：配置多个连接数据库的环境
+4. plugins：添加插件
+
+   ```xml
+<plugins>
+       <!-- 添加分页插件 -->
+       <plugin interceptor="com.github.pagehelper.PageInterceptor"/>
+   </plugins>
+   ```
+   
+5. environments：配置多个连接数据库的环境
 
    - default：设置默认使用的数据库环境，值为具体的数据库环境的 id值
 
@@ -596,7 +605,7 @@ MyBatis的核心配置文件中标签的定义，是需要遵循一定的顺序�
    </environments>
    ```
 
-5. mappers：引入映射文件
+6. mappers：引入映射文件
 
    ```xml
    <mappers>
@@ -1259,4 +1268,258 @@ public interface OneThenMoreMapper {
 
      ④ 同一个SqlSession，但手动清空了缓存（调用 `SqlSession对象.clearCache()` 方法）
 
-2. 二级缓存：
+2. 二级缓存：属于SqlSessionFactory级别的，通过同一个SqlSessionFactory创建的SqlSession查询的结果会被缓存
+
+   - 二级缓存开启条件：
+
+     ① 核心配置文件中，设置全局配置 cacheEnabled = "true"（默认开启）
+
+     ② 在映射文件中添加标签 \<cache />
+
+     ③ 在SqlSession关闭（`SqlSession对象.close()`）或提交（`SqlSession对象.commit()`）后才会缓存
+
+     ④ 查询结果所存储的数据载体类必须实现序列化接口 Serializable
+
+   - 二级缓存失效原因：两次查询之间进行了任意一次增删改操作（会使一级缓存和二级缓存同时失效）
+
+
+
+缓存的查询顺序：先查询二级缓存，再查询一级缓存，若还未查询到需要的数据，则会查询数据库
+
+
+
+
+
+
+
+
+
+## 逆向工程
+
+### 基础配置
+
+1. 导入Maven插件：
+
+   ```xml
+   <build>
+       <plugins>
+           <!-- 导入插件后，在 右边Maven工具栏 -> Plugins -> mybatis-generator 中双击使用 -->
+           <plugin>
+               <groupId>org.mybatis.generator</groupId>
+               <artifactId>mybatis-generator-maven-plugin</artifactId>
+               <version>1.3.0</version>
+               <!-- 插件所需依赖 -->
+               <dependencies>
+                   <dependency>
+                       <groupId>org.mybatis.generator</groupId>
+                       <artifactId>mybatis-generator-core</artifactId>
+                       <version>1.3.2</version>
+                   </dependency>
+                   <dependency>
+                       <groupId>com.mchange</groupId>
+                       <artifactId>c3p0</artifactId>
+                       <version>0.9.2</version>
+                   </dependency>
+                   <dependency>
+                       <groupId>mysql</groupId>
+                       <artifactId>mysql-connector-java</artifactId>
+                       <version>8.0.33</version>
+                   </dependency>
+               </dependencies>
+           </plugin>
+       </plugins>
+   </build>
+   ```
+
+2. 创建配置文件：`generatorConfig.xml`
+
+   ```xml
+   <?xml version="1.0" encoding="UTF-8" ?>
+   <!DOCTYPE generatorConfiguration
+           PUBLIC "-//mybatis.org//DTD MyBatis Generator Configuration 1.0//EN"
+           "http://mybatis.org/dtd/mybatis-generator-config_1_0.dtd">
+   <generatorConfiguration>
+       
+       <!-- 
+   		targetRuntime：设置执行的逆向工程的版本
+   			① MyBatis3Simple：生成最基本的CRUD（简洁版）
+   			② MyBatis3：生成可拥有条件的CRUD（奢华版）
+    	-->
+       <context id="DB2Tables" targetRuntime="MyBatis3Simple">
+           
+           <!-- 数据库连接信息 -->
+           <jdbcConnection driverClass="com.mysql.cj.jdbc.Driver"
+                           connectionURL="jdbc:mysql://localhost:3306/mybatis"
+                           userId="root"
+                           password="123456"/>
+           
+           <!-- 
+   			javaModelGenerator：生成pojo类
+                   targetPackage：设置生成的包
+                   targetProject：设置在哪个路径下生成包
+                   enableSubPackages：设置生成的包所用的.是否是代表一层目录，true表示是
+                   trimStrings：设置读取字段名时去除首尾空格
+   		-->
+           <javaModelGenerator targetPackage="com.atguigu.pojo" 
+                               targetProject="./src/main/java">
+               <property name="enableSubPackages" value="true"/>
+               <property name="trimStrings" value="true"/>
+           </javaModelGenerator>
+           
+   		<!-- 生成Mapper映射文件 -->
+           <sqlMapGenerator targetPackage="com.atguigu.mapper" 
+                            targetProject="./src/main/resources">
+               <property name="enableSubPackages" value="true"/>
+           </sqlMapGenerator>
+           
+           <!-- 生成Mapper接口 -->
+           <javaClientGenerator type="XMLMAPPER" targetPackage="com.atguigu.mapper" 
+                                targetProject="./src/main/java">
+               <property name="enableSubPackages" value="true"/>
+           </javaClientGenerator>
+           
+           <!-- 
+   			设置被逆向分析的表
+   				tableName：逆向分析的表名
+   				domainObjectName：生成的pojo类名
+    		-->
+           <table tableName="employee" domainObjectName="Employee"/>
+           <table tableName="department" domainObjectName="Department"/>
+       </context>
+   </generatorConfiguration>
+   ```
+
+
+
+
+
+
+
+### 奢华版使用
+
+奢华版可以实现：对任意字段，根据任意条件，来进行操作
+
+使用举例：
+
+1. 查询所有的员工：
+
+   ```java
+   // 获取SqlSession对象
+   InputStream is = Resources.getResourceAsStream("mybatis-config.xml");
+   SqlSession sqlSession = new SqlSessionFactoryBuilder().build(is).openSession();
+   
+   // 获取映射接口对象
+   EmployeeMapper mapper = sqlSession.getMapper(EmployeeMapper.class);
+   
+   // 查询方法有两个：一个是根据条件进行查询，一个是根据主键进行查询
+   // 很显然，查询所有的员工，则需要根据条件进行查询，而条件就是null
+   List<Employee> employees = mapper.selectByExample(null);
+   System.out.println(employees);
+   ```
+
+   - SQL语句相当于：`SELECT * FROM employee`
+
+2. 查询姓名为June，年龄为19；或姓名为July，年龄为19的员工
+
+   ```java
+   // 获取SqlSession对象
+   InputStream is = Resources.getResourceAsStream("mybatis-config.xml");
+   SqlSession sqlSession = new SqlSessionFactoryBuilder().build(is).openSession();
+   
+   // 获取映射接口对象
+   EmployeeMapper mapper = sqlSession.getMapper(EmployeeMapper.class);
+   
+   // 很显然，根据条件进行查询，而selectByExample()需要一个对应的Example参数
+   // 创建一个Example对象
+   EmployeeExample employeeExample = new EmployeeExample();
+   
+   // 调用Example对象中的方法来设置条件（where条件）
+   // 使用createCriteria()来创建条件，andXxx()来设置条件的值（见名知意）
+   employeeExample.createCriteria().andEmpNameEqualTo("June").andAgeEqualTo(19);
+   
+   // or() 来表示where条件中的or，or之后的条件单独作为一部分（即：使用了()包裹）
+   employeeExample.or().andEmpNameEqualTo("July").andAgeEqualTo(19);
+   
+   List<Employee> employees = mapper.selectByExample(employeeExample);
+   System.out.println(employees);
+   ```
+
+   - SQL语句相当于：`SELECT * FROM employee WHERE (emp_name='June' AND age=19) OR (emp_name='July' AND age=19)`
+   
+3. 增删改操作，如：updateByPrimaryKey、updateByPrimaryKeySelective 两者的区别：
+
+   - updateByPrimaryKey：当值为 null 时，修改依旧会进行，原值会被置为 null
+   - updateByPrimaryKeySelective：当值为 null 时，不会修改该值，仍为原值
+
+
+
+
+
+
+
+
+
+## 分页插件
+
+### 配置
+
+1. 添加依赖：pagehelper
+
+   ```xml
+   <dependency>
+       <groupId>com.github.pagehelper</groupId>
+       <artifactId>pagehelper</artifactId>
+       <version>5.3.1</version>
+   </dependency>
+   ```
+
+2. 在MyBatis核心配置文件中，配置插件：
+
+   ```xml
+   <plugin interceptor="com.github.pagehelper.PageInterceptor"/>
+   ```
+
+
+
+
+
+### 使用
+
+> 当前查询的数据的索引 = ( 当前显示的页码 - 1 )  * 每页显示条数
+
+1. 在查询前开启分页
+
+   ```java
+   PageHelper.startPage(int pageNum,int pageSize);
+   /*
+   	pageNum：当前页码
+   	pageSize：每页显示条数
+   */
+   ```
+
+2. 在查询后获取分页信息
+
+   ```java
+   PageInfo<T> page = new PageInfo<>(List list,int navigatePages);
+   /* 
+   	T：数据载体类的类型
+   	list：查询后的结果集（List集合，要被分页的数据）
+   	navigatePages：导航分页的数量
+   */
+   ```
+
+
+
+PageInfo返回结果分析：
+
+- pageNum：当前页数
+- pageSize：每页条目数
+- size：当前页显示的条目数
+- total：总记录数
+- pages：总页数
+- prePage / nextPage：上一页 / 下一页 的页码
+- isFirstPage / isLastPage：是否是 第一页 / 最后一页
+- hasPreviousPage / hasNextPage：是否存在 上一页 / 下一页
+- navigatePages：导航分页的页码数
+- navigateFirstPage / navigateLastPage：当前导航分页的 第一页 / 最后一页
+- navigatepageNums：当前导航分页的所有页码
