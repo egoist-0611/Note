@@ -140,6 +140,14 @@ MyBatis（原名 iBatis），是一个基于Java的持久层框架，包括了SQ
    // 5.提交事务（JDBC下需要手动提交事务）
    sqlSession.commit();
    ```
+   
+   - 3、4步可以使用其他方式代替，如：
+   
+     `int rows = sqlSession.insert("唯一标识")`
+   
+     根据唯一标识（即：`接口全类名.方法名`）来定位到要被执行的SQL语句
+   
+     3、4步的底层就是用到了该方法
 
 
 
@@ -345,6 +353,7 @@ public interface UserMapper {
 
 - 返回的类型为Map集合，以查询到的结果中的 字段名为key，字段值为value
 - resultType 中声明的返回值类型为 Map，是使用了默认提供的类名别名
+- 当没有实体类来存储返回结果时，使用Map集合来存储就是最好的选择：查询的字段作为Map集合的key，而查询的结果则作为Map集合的value
 
 
 
@@ -404,7 +413,8 @@ public interface UserMapper {
 ```java
 public interface UserMapper {
     @MapKey("id")
-    Map<String,Map<String,Object>> getAllUserOnMapMap();
+    Map<String,Object> getAllUserOnMapMap();
+    // Map<String,Map<String,Object>> getAllUserOnMapMap();
 }
 ```
 
@@ -416,9 +426,10 @@ public interface UserMapper {
 </mapper>
 ```
 
-- 我们是不能直接通过 Map\<Map> 的方式存储结果的，因为我们查询到的字段名和字段值，作为内存Map的key和value，而每一行数据，只能作为外层Map的key或value。因此，我们需要为外层Map指定一个key
-- 通过 `@MapKey("字段名")` 的方式，我们可以指定某个字段的值作为（外层）Map的key
-- 通常使用主键作为外层Map的key，因为这样不会重复（在Map中，重复的key的value会被后者替换）
+- resultType为Map时，返回一个Map集合，其key为字段名，value为字段值。因此，当我们查询到多条数据时，是不能直接通过 单个Map 的方式存储结果的
+- 但是，Map本身是具有存储多条数据的功能的，我们可以将多条数据作为 另一个Map 的value；但是同时，我们还需指定每条数据所对应的key
+- 通过 `@MapKey("字段名")` 的方式，我们可以指定查询的 某个字段 来作为（外层）Map的key
+- 通常使用主键字段作为外层Map的key，因为这样不会重复（在Map中，重复的key的value会被后者替换）
 
 
 
@@ -459,13 +470,17 @@ public interface UserMapper {
    <mapper namespace="接口全类名">
        <select id="方法名" resultType="数据载体全类名">
        <!--
-   		方式一：SELECT * FROM user WHERE name Like "%"#{参数名}"%"
+   		方式一：SELECT * FROM user WHERE name LIKE "%"#{参数名}"%"
    
-   		方式二：SELECT * FROM user WHERE name Like '%${参数名}%'
+   		方式二：SELECT * FROM user WHERE name LIKE '%${参数名}%'
+   
+   		方式三：SELECT * FROM user WHERE name LIKE CONCAT('%',#{参数名},'%')
    	-->    
        </select>
    </mapper>
    ```
+
+   > 若是直接使用 '%#{参数名}%' ，则在预编译后，#{参数名} 会被解析为 ? ，而 '%?%' 是被当成了字符串，而非占位符，因此不会对该 ? 进行解析
 
 2. 批量删除：
 
@@ -616,8 +631,8 @@ MyBatis的核心配置文件中标签的定义，是需要遵循一定的顺序�
        <package name="包路径.xml文件"/>
        <!-- 
    		以包为单位，引入指定包路径下所有的xml映射文件（创建Directory时，可使用/快速建多层目录）
-   			要求：① Mapper接口所在的包，与映射文件所在的包名称一致
-   				 ② Mapper接口，要与映射文件的名称一致
+   			要求：① Mapper接口要与xml映射文件在同一个包下（部署后都在classes目录的某个子目录中）
+   				 ② Mapper接口要与xml映射文件的名称一致
    	-->
        
    </mappers>
