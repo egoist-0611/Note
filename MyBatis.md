@@ -979,7 +979,9 @@ public interface MoreThenOneMapper {
 association标签中：
 
 - select属性：根据该唯一标识（接口全类名.方法名），去执行对应的接口方法
-- column属性：关联字段、查询字段
+- column属性：关联字段、查询字段，从前一步查询的结果中，取出指定字段来作为下一步查询的条件
+
+先查询出部分结果进行属性赋值；当出现属性是另一张表中的数据，就根据 select 绑定的唯一标识，定位到接口中的方法，并以 column 所指定的字段，作为方法映射的SQL语句的查询条件；最终将查询到的数据赋值给该属性
 
 
 
@@ -1090,6 +1092,9 @@ public interface OneThenMoreMapper {
   ```xml
   <settings>
       <setting name="lazyLoadingEnabled" value="true"/>
+      
+      <!-- 默认即为false，表示是否直接加载全部内容 -->
+      <setting name="aggressiveLazyLoading" value="false"/>
   </settings>
   ```
 
@@ -1300,6 +1305,9 @@ public interface OneThenMoreMapper {
 
 
 缓存的查询顺序：先查询二级缓存，再查询一级缓存，若还未查询到需要的数据，则会查询数据库
+
+- 二级缓存存储的数据量较大，若二级缓存查询到了，则不需要再去查询一级缓存了
+- 一级缓存中的数据并不一定在二级缓存中存在。因为一级缓存的数据，只有在SqlSession关闭后才会被保存到二级缓存中
 
 
 

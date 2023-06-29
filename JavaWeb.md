@@ -2456,11 +2456,20 @@ var a = new Vue({
     }
 });
 
-// 调用methodName方法，获取回调函数的返回值
-a.methodName().then(function(returnValue){
-    // returnValue则为回调函数的返回值
-})
-// 若该方法是在另外一个方法内部调用的，则需要return a.methodName().then()，以获取到function(returnValue)内部执行完后的返回值
+// 在方法中调用methodName方法，获取回调函数的返回值（异步）
+// 方式一：
+function method1(){
+    var param = a.methodName().then(function(returnValue){
+        // returnValue则为回调函数的返回值
+    })    
+}
+
+// 方式二：
+async function method2(){
+    var param = await a.methodName();
+ // 该方式也能获取方法调用后的返回值。不同的是，该方式是让a.methodName()（异步）方法执行完后，再获取结果
+    // 虽然可以让该方法内部的代码按顺序执行，但该method2方法本身依旧是异步方法
+}
 ```
 
 
