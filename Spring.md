@@ -6,9 +6,9 @@
 
 - 轻量级：体积结构小；不需要再依赖其他组件
 - 框架：已经封装好特定功能的半成品，可以提高开发效率，减少开发周期
-- 两个核心模块：IoC 和 AOP
-  - Ioc：控制反转，指：将创建对象的过程交给Spring进行管理和创建
-  - AOP：面向切面编程，指：用来封装多个类的公共行为，如Filter、Listener等
+- 两个核心模块：IOC 和 AOP
+  - IOC：控制反转，将创建对象的过程交给Spring进行管理和创建
+  - AOP：面向切面编程，对不连续的代码进行整合，在不修改原代码的基础上增强代码的功能
 
 
 
@@ -20,6 +20,26 @@
 
 
 3）Spring6要求使用 JDK17，Maven版本为3.6以上，且需要设置Maven在进行 complie 是使用的是 JDK17 进行编译（settings.xml）
+
+
+
+4）特点：
+
+1. 非侵入式：对本身程序的结构影响很小，不会破坏原有的结构，且能依旧使用原生的代码
+2. 控制反转与容器、面向切面编程
+3. 组件化：可以使用简单的组件配置组合成一个复杂的应用，由XML或Java注解来组合这些对象
+4. 声明式：很多靠编写代码实现的功能，现改为只需声明需求即可由框架代为实现
+5. 一站式：在IOC和AOP的基础上，可以整合其他的开源框架或第三方类库
+
+
+
+5）五大功能模块
+
+1. Core Container：核心容器，在Spring环境下使用任何功能，都必须基于IOC容器
+2. AOP & Aspects：面向切面编程
+3. Testing：对 junit 和 TestNG 测试框架的整合
+4. Date Access / Integration：对 数据访问 / 集成 的功能
+5. Spring MVC：面向Web应用程序的集成功能
 
 
 
@@ -183,45 +203,56 @@
 
 
 
-## IoC
+## IOC
 
-### IoC思想
+### IOC容器
 
-- Inversion of Control，控制反转设计思想，为了降低程序耦合度，提高程序拓展力
-- Spring通过 IoC容器 来管理所有 Java对象的实例化和初始化，控制对象与对象间的依赖关系 ，将由IoC容器管理的Java对象称为Spring Bean（但本质上和new出来的对象没什么区别）
+#### 概念
+
+- IOC（Inversion of Control）思想，控制反转设计思想，为了降低程序耦合度，提高程序拓展力
+
+  - 控制反转：
+
+    ① 将对象的创建权利交出去，由第三方容器负责
+
+    ② 将对象与对象之间关系的维护交出去（属性注入），由第三方容器负责
+
+- IOC容器是IOC思想的实现。Spring通过 IOC容器 来管理所有 Java对象的实例化和初始化，控制对象与对象间的依赖关系 ，将由IOC容器管理的Java对象称为Spring Bean（但本质上和new出来的对象没什么区别）
+
+  - 依赖注入：DI（Denpendency Injection），为对象中的属性赋值，是IOC思想实现的体现
+
 - 根据 XML配置文件（BeanDefinition，封装了Bean的定义信息），利用 BeanDefinitionReader 抽取出 Bean的定义信息，将其利用 BeanFactory工厂接口 + 反射 进行实例化和初始化，最终通过BeanFactory 接口的实现类中的方法来获取对象
 
-1）控制反转：
-
-1. 将对象的创建权利交出去，由第三方容器负责
-2. 将对象与对象之间关系的维护交出去（属性注入），由第三方容器负责
-
-2）属性注入：DI（Denpendency Injection），实现控制反转的思想
 
 
 
 
+#### IOC容器创建
+
+IOC容器的创建有两种创建方式：
+
+1. BeanFactory：IoC容器的基本实现，是Spring内部使用的接口，不提供给开发人员使用
+2. ApplicationContext：BeanFactory的子接口，内含多个实现类供开发人员使用
+   - ClassPathXmlApplicationContext：通过读取类路径下的XML配置文件来创建IoC容器
+   - FileSystemXmlApplicationContext：通过读取文件系统路径下的XML配置文件来创建IoC容器
+   - ConfigurableApplicationContext：ApplicationContext的子接口（在ApplicationContext接口的基础上，增加了启动、关闭、刷新上下文的能力）
+   - WebApplicationContext：在Web环境下创建的IOC容器对象，就是WebApplicationContext类型的
+
+通过 new ApplicationContext接口的实现类的方式，即可获取到IOC容器对象
 
 
 
-### bean对象获取
-
-> 要创建bean对象，就要先创建IoC容器，而IoC容器的创建有两种创建方式：
-
-BeanFactory：IoC容器的基本实现，是Spring内部使用的接口，不提供给开发人员使用
-
-ApplicationContext：BeanFactory的子接口，内含多个实现类供开发人员使用
-
-- ClassPathXmlApplicationContext：通过读取类路径下的XML配置文件来创建IoC容器
-- FileSystemXmlApplicationContext：通过读取文件系统路径下的XML配置文件来创建IoC容器
-- ConfigurableApplicationContext：ApplicationContext的子接口，包含一些拓展方法，让ApplicationContext其具有启动、关闭、刷新上下文的能力
-- WebApplicationContext：基于Web环境创建IoC容器对象，并将对象引入存入ServletContext域中
 
 
 
-ApplicationContext子接口中的方法：
 
-【Object】`getBean(String idName)`：通过xml配置文件中的id获取到bean对象
+
+
+### 获取Bean对象
+
+ApplicationContext子接口中的方法可以获取到IOC容器中存储的Bean对象：
+
+【Object】`getBean(String idName)`：通过xml配置文件中的id（唯一标识）获取到bean对象
 
 【T】`getBean(Class<T> className)`：通过类（类型）获取到bean对象
 
@@ -238,6 +269,27 @@ ApplicationContext子接口中的方法：
   <bean id="test2" class="com.atguigu.spring6.Hello"/>
   <!-- 通过类（类型）来获取，会报错；但通过id来获取，依然可行 -->
   ```
+  
+- 当根据类类型来获取bean对象时，可以通过其接口的类型来获取该bean对象，但该接口仅能有一个实现类
+
+  ```java
+  // 接口
+  public interface Person{}
+  
+  // 实现类
+  public class Student implements Person{}
+  
+  // 指定创建的bean对象，底层是通过反射，借助无参构造来创建bean对象的
+  // 接口是没有构造器的，因此是不能用来指定为bean对象所创建时的实体类类型
+  <bean id="test" class="com.atguigu.spring.Student"/>
+      
+  // 获取bean对象
+  ApplicationContext context = new ClassPathXmlApplicationContext("spring.xml");
+  Person bean = context.getBean(Person.class);
+  // 通过类型获取bean对象时，是可以通过接口类型来获取其唯一实现类的对象的
+  ```
+
+  - 准确来说，只要获取的对象是满足【 对象 instanceof 类型 】且被唯一指向，则都是可以获取到该对象的（如：继承父类、实现接口 等）
 
 
 
@@ -245,13 +297,21 @@ ApplicationContext子接口中的方法：
 
 
 
-### 属性注入
 
-> bean对象被全部加载完成后，就会进行属性注入
 
-#### 注入方式分类
+### 依赖注入
 
-1）通过setXxx()的方式为属性赋值：
+> 在bean对象全部加载完成后，就会进行依赖注入
+
+#### 注入方式
+
+1）通过属性的setXxx()方法进行赋值：
+
+> 属性和成员变量的区别：
+>
+> 成员变量中拥有getXxx()、setXxx()方法，当去掉set / get，剩余的部分首字母小写，获取到的即为属性名
+>
+> 因此可以说，拥有get、set方法的才被称为属性，而属性和那些没有get、set方法的属性，被统称为成员变量
 
 ```xml
 <!-- 要求：在该类中，要赋值的属性有标准的setXxx()方法可供调用 -->
@@ -268,6 +328,8 @@ ApplicationContext子接口中的方法：
 	<constructor-arg name="属性名" value="属性值"/>
 </bean>
 ```
+
+
 
 
 
@@ -306,12 +368,17 @@ ApplicationContext子接口中的方法：
      </bean>
      <!-- 被包裹内部可书写任意特殊字符，都不会产生冲突 -->
      ```
+     
+     - 由于 \<![CDATA[]]> 是一个特殊的标签，是不能在属性中使用的；而 value 可以作为属性，也可以作为 property 中的一个子标签 \<value>
+     - 因此，可以将 \<![CDATA[]]> 声明在 \<value> 标签中
 
 
 
 
 
-#### 对象属性注入
+
+
+#### 对象注入
 
 - 外部bean引用注入：
 
@@ -336,7 +403,21 @@ ApplicationContext子接口中的方法：
   <!-- <property>内部的<bean>，外部无法读取到 -->
   ```
 
+- 使用级联的方式可以修改实体类属性中的属性值：
+
+  ```xml
+  <bean id="id名1" class="实体类全类名"/>
   
+  <bean id="id名2" class="全类名">
+  	<property name="实体类属性名" ref="id名1"/>
+      <property name="实体类属性名.属性" value="属性值"/>
+  </bean>
+  <!-- 使用级联的方式，在该实体类属性被赋值后，就可以直接通过 .属性 的方式为该实体类中的属性赋值 -->
+  <!-- 因为要求该实体类属性必须被赋值后，才能修改属性值，因此不推荐使用 -->
+  ```
+
+
+
 
 
 
@@ -358,6 +439,8 @@ ApplicationContext子接口中的方法：
 <!-- array中的数值当然可以是对象类型，详见下方举例 -->
 ```
 
+
+
 2）List集合类型注入：
 
 ```xml
@@ -376,6 +459,21 @@ ApplicationContext子接口中的方法：
 <!-- 两种方式都可以添加对象属性的值 -->
 <!-- 普通数值的方式参考上面 -->
 ```
+
+- 也可以配置一个集合类型的bean，然后引用该bean对象
+
+  ```xml
+  <bean id="id名1" class="全类名">
+      <property name="集合类型属性值" ref="id名2"/>
+  </bean>
+  <util:list id="id名2">
+      <value>值1</value>
+      <ref bean="值2（引用bean对象的id名）"/>
+  </util:list>
+  <!-- 需要注意的是：要引入util的命名空间（约束） -->
+  ```
+
+
 
 3）Map集合类型注入：
 
@@ -399,40 +497,22 @@ ApplicationContext子接口中的方法：
                 </key>
                 <bean id="id名2" class="全类名"/>
             </entry>
+            <!-- 属性值3 -->
+            <entry key="key名" value="value值"/>
         </map>
     </property>
 </bean>
 <!-- 当map中的属性值为普通数值时，依旧是使用<value>标签即可 -->
+<!-- entry中的 key-ref/value-ref，用来引用对象类型的id值 -->
 ```
+
+
 
 
 
 
 
 #### 命名空间注入
-
-若需要注入的属性类型为集合，需要先使用 \<util> 将集合抽取出来定义
-
-```xml
-<!-- 使用<util>前，需要先修改文档类型定义。添加后，<util>标签才能被正常识别 -->
-<!-- 
-    在<beans>标签的文档类型定义中，添加：
-        xmlns:util="http://www.springframework.org/schema/util"
-    在 xsi:schemaLocation 末尾追加：（两者要紧挨）
-        http://www.springframework.org/schema/util
-        http://www.springframework.org/schema/util/spring-util.xsd
--->
-
-<bean id="id名1" class="全类名"/>
-
-<util:list>
-	<ref bean="id名1"/>
-    <bean id="id名2" class="全类名"/>
-</util:list>
-<!-- map则使用<util:map>，值的注入与 集合类型属性注入 方式类似 -->
-```
-
-命名空间注入：
 
 ```xml
 <!-- 使用命名空间前，需要先修改文档类型定义。添加后，p:属性名 才能被正常识别 -->
@@ -441,8 +521,10 @@ ApplicationContext子接口中的方法：
 		xmlns:p="http://www.springframework.org/schema/p"
 -->
 
-<bean id="id名" class="全类名" p:属性名="普通属性值" p:属性名-ref="对象属性值"/>
+<bean id="id名" class="全类名" p:属性名="普通属性值" p:属性名-ref="对象属性所对应的id值"/>
 ```
+
+
 
 
 
@@ -474,7 +556,7 @@ ApplicationContext子接口中的方法：
 
 
 
-### bean的作用域及生命周期
+### bean对象的作用域及生命周期
 
 1）作用域：
 
@@ -493,37 +575,38 @@ ApplicationContext子接口中的方法：
 
 1. bean对象的创建（调用无参构造器进行创建）
 
-2. 设置bean对象的属性值
+2. 设置bean对象的属性值（依赖注入）
 
-3. bean后置处理器调用（初始化前调用）
+3. 在初始化前，调用后置处理器中的 postProcessBeforeInitialization() 方法
 
-   - 后置处理器可以说是 `BeanPostProcessor`类
-   - 该类中有两个方法，初始化前调用的是 postProcessBeforeInitialization() 方法
+   - 后置处理器类需要实现 `BeanPostProcessor`接口，并且配置到IOC容器中
+   - 方法中的参数：bean（当前后置处理器处理的bean对象）、beanName（处理的bean对象的id值），若对bean进行了修改后，则需要将该bean对象进行返回
+   - 后置处理器配置后，是针对当前IOC容器中所有的bean都生效的
 
-4. bean对象进行初始化（调用指定的初始化方法）
+4. bean对象进行初始化（可指定调用的初始化方法）
 
    - ```xml
      <bean id="id名" class="全类名" init-method="方法名"/>
      <!-- 自定义方法，然后通过init-method指定其为初始化方法 -->
      ```
 
-5. bean后置处理器调用（初始化后调用）
+5. 在初始化后，调用后置处理器中的 postProcessAfterInitialization() 方法
 
-   - 初始化后调用的是 postProcessAfterInitialization() 方法
-   - 若想要自定义后置处理器中执行的内容，则需要让一个类继承 BeanPostProcessor，并重写其两个方法，再将该类添加进IoC容器中
+6. （bean对象创建完毕，可以被使用）
 
-6. bean对象创建完毕，可以被使用
-
-7. bean对象被销毁（调用指定的销毁方法）
+7. bean对象销毁（可指定调用的销毁方法）
 
    - ```xml
      <bean id="id名" class="全类名" destroy-method="方法名"/>
      <!-- 自定义方法，然后通过init-method指定其为初始化方法 -->
      ```
 
-   - 通过调用 ApplicationContext实现类中的 `close()` 方法将bean对象销毁
+   - 当IOC容器关闭时，才会调用销毁方法
 
-8. IoC容器关闭
+     > 当作用域为 prototype（多例）时，销毁方法的调用不再由IOC容器管理
+     >
+     > 通过调用 ApplicationContext 的实现类中的 `close()` 方法来关闭IOC容器
+
 
 
 
@@ -534,7 +617,7 @@ ApplicationContext子接口中的方法：
 ### FactoryBean
 
 - 是一种整合第三方框架的常用机制
-- class属性值被配置为 FactoryBean 的实现类时，获取到的类对象并不是 FactoryBean实现类对象，而是其内部方法 getObject() 所返回的对象
+- 当 FactoryBean 的实现类被配置为bean时，实际上通过该bean获取到的对象是FactoryBean实现类内部方法 getObject() 所返回的对象
 
 ```java
 public class A{}
@@ -546,7 +629,7 @@ public class B implements FactoryBean<A>{
         return new A();
     }
 
-    @Override
+    @Override		// 用来返回创建的对象的类型
     public Class<?> getObjectType() {
         return null;
     }
@@ -556,7 +639,7 @@ public class B implements FactoryBean<A>{
 ```xml
 <bean id="b" class="com.atguigu.B" />
 <!-- 
-此时明面上创建的是B类的对象，但由于B实现了FactoryBean接口，所有实际上创建的bean对象为B内部的getObject()方法返回的对象
+此时明面上创建的是B类的对象，但由于B实现了FactoryBean接口，所以实际上通过id获取的bean对象，是B内部的getObject()方法返回的对象（也可直接通过 方法内部返回的对象的类型 来获取对象）
 -->
 ```
 
@@ -566,20 +649,66 @@ public class B implements FactoryBean<A>{
 
 
 
+
+
 ### 自动装配
 
-- 对bean对象中的属性进行注入（前提：该属性提供了 set 方法）
+使bean对象中 类类型或接口类型的属性 自动被注入（匹配 IOC容器 中的某个bean来进行注入）
 
-```xml
-<bean id="id名" class="全类名" autowire="byType"/>
-<!-- 通过属性的类型（class类类型），匹配IoC容器中对应的bean对象，对该属性进行对象属性值注入 -->
+- autowire 的值为 no、default 时，表示不自动装配，此时该对象中的属性使用默认值
 
-<bean id="id名" class="全类名" autowire="byName"/>
-<!-- 通过属性的名称（id属性值），匹配IoC容器中对应的bean对象，对该属性进行对象属性值注入 -->
+- ```xml
+  <bean id="id名" class="全类名" autowire="byType"/>
+  <!-- 根据属性的类型（class类类型）来匹配IoC容器中的bean对象，并进行自动装配 -->
+  ```
+
+  >当IoC容器中，没有类型匹配的bean对象时，则属性值不装配（即为初始值）
+  >
+  >当IoC容器中，存在多个类型匹配的bean对象时，会报错
+
+- ```xml
+  <bean id="id名" class="全类名" autowire="byName"/>
+  <!-- 根据属性的名称（id属性值）来匹配IoC容器中的bean对象，并进行自动装配 -->
+  ```
+
+
+
+
+
+
+
+
+
+### 注解方式
+
+#### Bean对象的创建
+
+1）将该类标记为需要被自动创建的bean对象
+
+```java
+@Component(value="id名")		// 相当于<bean id="id名" class="类的全类名"/>
+public class 类名{}
+
+// value不指定时，默认即为 类名首字母小写
 ```
 
-- 当IoC容器中，没有类型匹配的bean对象时，则属性值不装配（即为初始值）
-- 当IoC容器中，存在多个类型匹配的bean对象时，会报错
+- @Component：该注解用于描述Spring中的Bean，仅仅表示是容器中的一个组件，并可以表示在任意层次。被标记上该注解的类，会被自动装配到IoC容器中
+- @Controller：该注解通常表示在Controller控制层，功能与Component一致
+- @Service：该注解通常表示在Service业务层，功能与Component一致
+- @Repository：该注解通常表示在Dao数据访问层，功能与Component一致
+
+
+
+2）将方法的返回值作为IOC容器中的一个bean对象
+
+```java
+@Bean(name="id名")
+public 返回值类型 方法名(){}
+```
+
+- 若不指定name的值，则默认以方法名作为Bean对象的id名
+- 可以指定初始化方法和销毁方法
+- 方法可以有参数，参数值会IOC容器创建后，通过属性注入的方式，自动进行值的注入
 
 
 
@@ -587,11 +716,11 @@ public class B implements FactoryBean<A>{
 
 
 
-### 注解
+#### 组件扫描
 
-#### 开启组件扫描
+##### XML文件方式
 
-- 由于Spring默认是不支持注解装配Bean对象的，因此，我们需要在Spring的核心配置文件（xml）中进行相关配置，开启Spring Beans的自动扫描功能
+- 由于Spring默认是不支持注解来自动装配Bean对象的，因此，我们需要在Spring的核心配置文件（xml）中进行相关配置，开启Spring Beans的自动扫描功能
 
 ```xml
 <!-- 使用组件扫描前，需要先修改文档类型定义。添加后，<context>标签才能被正常识别 -->
@@ -632,8 +761,10 @@ public class B implements FactoryBean<A>{
    	<context:include-filter type="扫描类型" expression="全类名"/>
    </context:component-scan>
    <!-- 
-   	user-default-filters="false"：关闭默认扫描规则。默认扫描规则是指定包及包下所有的类
-   	type的值与上面一样
+   	user-default-filters="false"：关闭默认扫描规则，默认扫描规则是指定包及包下所有的类
+   		排除扫描指定内容时，需要设置 user-default-filters="true"（即默认值）
+   		因此，只扫描指定内容，和排除扫描指定内容，是不可以同时使用的
+   	type的使用与上面一样
    -->
    ```
 
@@ -641,39 +772,20 @@ public class B implements FactoryBean<A>{
 
 
 
+##### 配置类方式
 
-
-#### Bean的装配
-
-##### 类的装配
+- 通过配置类，可以实现让类来实现组件扫描，从而真正意义上的实现全注解，脱离xml配置文件
 
 ```java
-@Component(value="id名")		// 相当于<bean id="id名" class="类的全类名"/>
+@Configuration		// 配置类
+@ComponentScan("包路径")		// 开启组件扫描
 public class 类名{}
 
-// value不指定时，默认即为 类名首字母小写
+// 相应的，不再读取xml配置文件，而是加载类
+ApplicationContext context = new AnnotationConfigApplicationContext(类名.class);
 ```
 
-- @Component：该注解用于描述Spring中的Bean，仅仅表示是容器中的一个组件，并可以表示在任意层次。被标记上该注解的类，会被自动装配到IoC容器中
-- @Controller：该注解通常表示在Controller控制层，功能与Component一致
-- @Service：该注解通常表示在Service业务层，功能与Component一致
-- @Repository：该注解通常表示在Dao数据访问层，功能与Component一致
 
-
-
-
-
-##### 方法的返回值配置
-
-```java
-@Bean(name="id名")
-public 返回值类型 方法名(){}
-```
-
-- 若不指定name的值，则默认以方法名作为Bean对象的id名
-- 可以指定初始化方法和销毁方法
-- 方法的返回值，将作为Bean对象注入到IoC容器中
-- 方法可以有参数，参数值会通过属性注入自动进行注入
 
 
 
@@ -736,6 +848,16 @@ public 返回值类型 方法名(){}
    private User user;
    ```
 
+> 默认情况下，使用byType的方式来实现注入
+>
+> 若存在多个类型匹配的bean，则会自动转换为byName的方式来实现注入
+>
+> 若不存在任何一个类型匹配的bean，则会抛出 NoSuchBeanDefinitionException 的异常。当我们设置 @Autowired 注解的 required="false"，则不会强制该属性必须完成自动装配；在没有为该属性赋值时，则使用默认值
+>
+> 若通过byType和byName的方式都无法实现注入，即：存在多个类型相同、且id值与属性名不一致的情况，就可以通过 @Qualifier("id值") 的方式，手动指定 为该属性赋值 的bean的id
+
+
+
 
 
 
@@ -765,23 +887,6 @@ private User user;
 ```
 
 
-
-
-
-
-
-#### 配置类
-
-- 通过配置类，可以实现让类来实现组件扫描，从而真正意义上的实现全注解，脱离xml配置文件
-
-```java
-@Configuration		// 配置类
-@ComponentScan("包路径")		// 开启组件扫描
-public class 类名{}
-
-// 相应的，不再读取xml配置文件，而是加载类
-ApplicationContext context = new AnnotationConfigApplicationContext(类名.class);
-```
 
 
 
@@ -2031,7 +2136,7 @@ public void test2(){
 <dependency>
     <groupId>org.springframework</groupId>
     <artifactId>spring-context</artifactId>
-    <version>6.0.3</version>
+    <version>5.3.23</version>
 </dependency>
 ```
 

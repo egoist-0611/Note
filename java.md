@@ -564,9 +564,11 @@ public static void main(String[] args){
 
 5. 设置编写代码时忽略大小写：General --> Code Completion --> Match case（关闭区分大小写）
 
-6. 自定义文件模板：File and Code Templates --> + --> Name（设置模版名）、Extension（设置文件模板默认后缀）、Enable Live Templates（开启光标动态效果，参考HTML模板）
+6. 设置控制台打印时的编码：General --> Console --> Default Encoding --> UTF-8
 
-7. 自定义方法模版：Live Templates --> + --> Template Group（添加分组）--> Live Template（添加模版）：以添加 单元测试方法 为例：
+7. 自定义文件模板：File and Code Templates --> + --> Name（设置模版名）、Extension（设置文件模板默认后缀）、Enable Live Templates（开启光标动态效果，参考HTML模板）
+
+8. 自定义方法模版：Live Templates --> + --> Template Group（添加分组）--> Live Template（添加模版）：以添加 单元测试方法 为例：
 
    ```java
    // 1、Abbreviation：调用模版的代码
