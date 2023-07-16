@@ -1028,13 +1028,122 @@ private void newBean(String url, String resolutePath) {
 
 ## AOP
 
-### 动态代理
+### 代理模式
 
-#### 知识点
+#### 介绍
+
+使用代理的原因：
+
+1. 在方法内部中，除了核心代码，还夹杂了一些非核心代码
+2. 若是面向对象思想，则是将非核心代码抽取出来，但该方式仅是适用于抽取一段连续的代码
+
+代理模式：通过一个代理类，在调用该代理类的方法时，间接的去调用目标方法
+
+- 这样既能实现解耦，添加附加功能，又不会对目标核心代码产生影响
+
+
+
+场景模拟：
+
+- 接口
+
+```java
+public interface Calculator {
+    // 加法
+    public abstract int add(int a,int b);
+    // 减法
+    public abstract int minus(int a,int b);
+}
+```
+
+- 实现类
+
+```java
+// 实现功能的实现类
+public class CalculatorImpl implements Calculator {
+    
+    // 加法（目标方法）
+    @Override
+    public int add(int a, int b) {
+		// 核心代码
+        return a + b;
+    }
+
+    // 减法（目标方法）
+    @Override
+    public int minus(int a, int b) {
+        // 核心代码
+        return a - b;
+    }
+}
+```
+
+
+
+
+
+
+
+#### 静态代理
+
+```java
+// 代理类要实现与被代理的目标类相同的接口（为了确保代理类中的功能与被代理的目标类的功能一致）
+public class CalculatorProxy implements Calculator {
+
+    // 被代理的目标类的对象
+    private Calculator target;
+
+    // 提供一个有参构造，对被代理的目标类的对象进行赋值
+    public CalculatorProxy(Calculator target) {
+        this.target = target;
+    }
+
+    // 代理方法：加法
+    @Override
+    public int add(int a, int b) {
+        // 增强代码
+        System.out.println("执行加法运算");
+        System.out.println("参数值：" + a + "," + b);
+        // 核心代码
+        int res = target.add(a, b);
+        // 增强代码
+        System.out.println("执行结果：" + res);
+        return res;
+    }
+
+    // 代理方法：减法
+    @Override
+    public int minus(int a, int b) {
+        // 增强代码
+        System.out.println("执行减法运算");
+        System.out.println("参数值：" + a + "," + b);
+        // 核心代码
+        int res = target.minus(a, b);
+        // 增强代码
+        System.out.println("执行结果：" + res);
+        return res;
+    }
+}
+```
+
+> 创建一个代理类，代理计算器的加减功能：
+>
+> 1. 通过代理类中的属性和有参构造，获取到被代理的目标类的对象，利用该对象来调用核心代
+> 2. 在核心代码执行前或执行后，进行些额外的操作
+
+
+
+
+
+
+
+#### 动态代理
+
+动态代理的动态性体现在：让其动态的为我们生成一个代理类
 
 - 动态代理分为：JDK动态代理、cglib动态代理
 - 当目标类有接口时，可以使用JDK动态代理或cglib动态代理；当目标类没有实现接口时，只能使用cglib动态代理
-- JDK动态代理生成的代理类，会被存放到com.sun.proxy包下，类名为$proxy1，并且和目标类实现相同的接口；cglib动态代理生成的代理类，会与目标类存放在同一个包下，且会继承目标类
+- JDK动态代理生成的代理类，会被存放到com.sun.proxy包下，类名为$proxyX（X表示随机数字），并且和目标类实现相同的接口；cglib动态代理生成的代理类，会与目标类存放在同一个包下，且会继承目标类
 
 JDK动态代理：该技术的代理类和目标类会实现相同的接口，因此被代理的目标类就必须实现接口
 
@@ -1044,97 +1153,61 @@ AspectJ：AOP思想的一种实现，将代理逻辑，写入 被代理的目标
 
 
 
+【Object】（static）`Proxy.newProxyInstance(ClassLoader,Class[],InvocationHandler)`：实现动态代理的关键方法，返回一个动态生成的代理类对象
 
-
-【Object】（static）`Proxy.newProxyInstance(ClassLoader,Class[],InvocationHandler)`：实现动态代理的关键方法，返回一个代理对象
-
-- ClassLoader：要代理的类的类加载器。通常为接口的类加载器
-- Class[]：要代理的类需要实现的接口。也决定了代理类可以充当的角色（可强转的类型）
-- InvocationHandler：接口。当代理对象调用代理类中的方法时，会转去调用该接口中的被重写后的`invoke()`方法。在该方法内部，应当去执行要被代理的内容
-  - invoke()方法中的三个参数：
+- ClassLoader：用来加载要被代理的目标类的类加载器
+- Class[]：要被代理的目标类所实现的所有接口（确保代理类所能实现的功能与被代理的目标类的功能一致）
+- InvocationHandler：接口，对（被调用的）被代理的目标类所实现的所有接口中的某个抽象方法 进行实现。实现后，调用该方法时，实际上调用的是内部的抽象方法 invoke()
+  - invoke()方法有三个参数：
     - Object proxy：代理对象
-    - Method method：代理对象调用代理类中的方法
-    - Object[] args：代理对象调用代理类中的方法时，所传递的参数（也就是method方法中所需要的参数）
+    - Method method：所实现的方法（利用反射可调用指定对象中的该方法）
+    - Object[] args：所实现的方法所需要的参数
 
 
 
+```java
+// 通过该类，动态获取到一个代理类对象
+// 通过该代理类对象（因为实现了与被代理的目标类相同的接口）来间接调用目标方法
+public class ProxyFactory {
+    
+    // 被代理的目标类的对象
+    private Object target;
 
+    // 通过提供一个有参构造器，为被代理的目标类的对象进行赋值
+    public ProxyFactory(Object target) {
+        this.target = target;
+    }
 
-#### 举例
+    // 自定义方法，通过该方法来获取到一个动态生成的代理类对象
+    public Object getProxyObj() {
+        
+        // 获取Proxy.newProxyInstance()方法所需要的参数
+        // 加载被代理的目标类的类加载器
+        ClassLoader classLoader = this.getClass().getClassLoader();
+        // 被代理的目标类所实现的所有接口，用于确保代理类的功能与被代理的目标类的功能一致
+        Class[] interfaces = target.getClass().getInterfaces();
+        // 调用某个功能（即接口中的方法）时，代理类会去实现该方法，并间接去调用目标方法
+        InvocationHandler invocationHandler = new InvocationHandler() {
+            @Override
+            public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                System.out.println("调用方法：" + method.getName());
+                int res = (int) method.invoke(target, args);
+                System.out.println("执行结果：" + res);
+                return res;
+            }
+        };
+        
+        // 该方法调用后，就会动态的为我们生成一个代理类对象
+        return Proxy.newProxyInstance(classLoader, interfaces, invocationHandler);
+    }
+}
 
-1. 接口
-
-   ```java
-   package com.atguigu.test3;
-   
-   public interface Shopping {
-       // 这个方法是用于进行折扣的
-       public abstract double discount(double pay);
-   }
-   
-   ```
-
-2. 代理类（实现类）
-
-   ```java
-   // 教师折扣
-   public class TeacherShopping implements Shopping {
-       @Override
-       public double discount(double pay) {
-           return pay * 0.7;
-       }
-   }
-   ```
-
-   ```java
-   // 学生折扣
-   public class StudentShopping implements Shopping {
-       @Override
-       public double discount(double pay) {
-           return pay * 0.8;
-       }
-   }
-   ```
-
-3. 获取代理对象
-
-   ```java
-   public class ShoppingProxy {
-       public Object getProxyObj(Object beProxyObj) {
-           Class beProxyClass = beProxyObj.getClass();
-           return Proxy.newProxyInstance(
-                   beProxyClass.getClassLoader(),
-                   beProxyClass.getInterfaces(),
-                   new InvocationHandler() {
-                       @Override
-                       public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-                           // 代理内容
-                           System.out.println("You Gave A Discount ... ");
-                           Object res = method.invoke(beProxyObj, args);
-                           System.out.print("You Only Need To Pay ");
-                           return res;
-                       }
-                   }
-           );
-       }
-   }
-   ```
-
-4. 进行代理
-
-   ```java
-   public class GoShopping {
-       public static void main(String[] args) {
-           Shopping studentShopping = (Shopping) new ShoppingProxy().getProxyObj(new StudentShopping());
-           double studentDiscount = studentShopping.discount(10);
-           System.out.println(studentDiscount);
-   
-           Shopping teacherShopping = (Shopping) new ShoppingProxy().getProxyObj(new TeacherShopping());
-           double teacherDiscount = teacherShopping.discount(10);
-           System.out.println(teacherDiscount);
-       }
-   }
-   ```
+/* 
+该代理类对象返回值时Object类型
+由于我们已经确定了被代理的目标类的类型，而在动态生成代理类时，我们需要实现与被代理的目标类相同的接口
+因此，我们可以直接将该Object类型的返回值，直接强转为实现的接口类型，就可以实现调用（代理）某个功能（方法）
+*/
+```
 
 
 
@@ -1142,31 +1215,24 @@ AspectJ：AOP思想的一种实现，将代理逻辑，写入 被代理的目标
 
 
 
-### 概念
+### 概念介绍
 
-- AOP是一种设计思想，是对面向对象编程的一种补充和完善。
-- 以通过预编译和运行期动态代理的方式，在不修改源代码的情况下，给程序动态且统一的添加额外功能的一种技术
-- 同时利用AOP，可对业务逻辑的各个部分进行隔离，从而使业务逻辑的各个部分间耦合度降低
-
-
-
-横切关注点
-
-- 从每个方法中抽取出来的同一类非核心业务，为了解决各个模块间相同的问题
-- 在一个项目中，可以使用多个横切关注点，来对相关方法进行多个方面的增强
-- 每有一个附加功能，就有一个横切关注点
+- AOP是一种面向切面的设计思想，是对面向对象编程的一种补充和完善。
+- 提取非核心代码，封装并在对应位置执行。即：在不修改源代码的情况下，给程序动态且统一的添加额外功能
 
 
 
-增强（通知）
+横切关注点：从目标方法中抽取出来的非核心代码
 
-- 你想要附加的功能（如：事务、日志信息等）
-- 当一个横切关注点上需要被实现的内容被封装为一个方法，此方法称为通知方法
-- 通知根据执行的先后顺序，被封装为五种类型：
-  - 前置通知：在被代理的目标方法 执行前 执行
-  - 返回通知：在被代理的目标方法 成功结束后 执行
-  - 异常通知：在被代理的目标方法 异常结束后 执行
-  - 后置通知：在被代理的目标方法 最终结束后 执行
+
+
+增强（通知）：将横切关注点中的内容封装为一个方法，此方法称为通知方法
+
+- 通知可根据核心代码的执行顺序，分为五种类型：
+  - 前置通知：在核心代码执行前执行
+  - 返回通知：在核心代码成功执行后 执行
+  - 异常通知：在核心代码出现异常时执行
+  - 后置通知：在核心代码最终执行结束后执行
   - 环绕通知：上面四种通知都要执行（在try-catch-finally中执行）
 
 
@@ -1181,9 +1247,9 @@ AspectJ：AOP思想的一种实现，将代理逻辑，写入 被代理的目标
 
 
 
-连接点：Spring允许使用通知的地方
+连接点：抽取非核心代码的位置（即横切关注点的位置）
 
-切入点：定位连接点的方式。Spring的AOP技术可以通过切入点定位到连接点
+切入点：定位连接点的方式
 
 
 
