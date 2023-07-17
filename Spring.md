@@ -1259,7 +1259,9 @@ public class ProxyFactory {
 
 ### 基于注解的AOP实现
 
-1）引入依赖：spring-aop、spring-aspects
+> 基于IOC所需依赖的基础上，引入依赖：spring-aspects
+
+1）将应用通知的目标类的对象存入到IOC容器中
 
 
 
@@ -1281,11 +1283,11 @@ public class ProxyFactory {
 
 
 
-3）设置切面类以及增强方法，并通过切入点表达式绑定代理的方法
+3）设置切面类以及通知方法，并通过切入点表达式设置通知方法作用的位置
 
 ```java
 @Aspect			// 标记该类为切面类
-@Component		// 存放进IoC容器中
+@Component		// 需要将切面类也存放进IoC容器中，需要确保开启组件扫描
 public class 类名{
     
 // 前置通知：在被代理的目标方法执行前执行
@@ -1295,14 +1297,14 @@ public class 类名{
     
 // 返回通知：在被代理的目标方法成功结束后执行
     // 可以设置获取代理的方法调用后的返回值：returning="返回值变量名"
-    // 若设置了获取返回值后，则该方法需添加Object参数，且参数名要与返回值变量名相同
+    // 若设置了获取返回值后，则该方法需添加形参，形参名应与返回值变量名相同
     @AfterReturning(value="切入点表达式",returning="返回值变量名")
-    public void 方法名(Object 返回值变量名){}
+    public void 方法名(返回值类型 返回值变量名){}
     
     
 // 异常通知：在被代理的目标方法异常结束后执行
     // 可以设置获取代理的方法出现异常后的异常信息：throwing="异常变量名"
-    // 若设置了获取异常信息后，则该方法需添加Throwable参数，且参数名要与异常变量名相同
+    // 若设置了获取异常信息后，则该方法需添加Exception或Throwable类型的形参，形参名应与异常变量名相同
     @AfterThrowing(value="切入点表达式",throwing="异常变量名")
     public void 方法名(Throwable 异常变量名){}
     
@@ -1312,49 +1314,58 @@ public class 类名{
     public void 方法名(){}
     
     
-// 环绕通知：上面四种通知都要执行（在try-catch-finally中执行）
+// 环绕通知：上面四种通知都要执行
     @Around(value="切入点表达式")
     public Object 方法名(ProceedingJoinPoint 变量名){
-    
-    // 相当于前置通知
-        // 两个与父类JoinPoint相同的方法
-        String methodName=变量名.getSignature().getName(); // 获取到代理的方法名
-        Object[] args = 变量名.getArgs();		// 获取到代理的方法的参数列表
-    
+        
+        Object 返回值变量名;
+        
         try{
-    // 相当于返回通知
-            Object returnValue = 变量名.proceed();		
-            // 去执行代理的方法，并接收返回的结果
+            
+        // 此处执行代码，相当于前置通知
+            
+            返回值变量名 = 变量名.proceed();
+            // 去执行目标方法，并接收返回的结果
+            // 若目标方法的执行结果是有返回值的，则该通知方法必须将该目标方法执行后的结果返回
+            // 与动态代理有相同的原因：代理类所代理方法，其结构上是一致的（为了确保实现的功能相同）
+    		
+        // 此处执行代码，相当于返回通知
+            
         }catch(Throwable e){
-    // 相当于异常通知
-           	// 出现异常时，执行的内容
+    	
+        // 此处执行代码，相当于异常通知
+
         }finally{
-    // 相当于后置通知
-            // 最终执行的内容
+    		
+        // 此处执行代码，相当于后置通知
+        
         }
     }
     
-    return 返回值;
+    return 返回值变量名;
 }
 ```
 
-- 切面的优先级：
+- 通知的执行顺序：
 
-  - 在代理的目标方法上，若同时存在多个切面，则切面的优先级控制切面的内外嵌套顺序
-    - 优先级高的切面在外面
-    - 优先级低的切面在里面
-  - 使用`@Order`注解，可控制切面的优先级
-    - `@Order(较小数值)`：优先级高
-    - `@Order(较大数值)`，优先级低
+  - Spring5.3x以前：前置通知 --> 目标方法 --> 后置通知 --> 返回通知或异常通知
+  - Spring5.3x以后：前置通知 --> 目标方法 --> 返回通知或异常通知 -->  后置通知
+
+- 切面的优先级：决定切面中通知方法的执行顺序
+
+  - 使用`@Order(整型值)`注解，可控制切面的优先级：数值越小，优先级越高
 
 - 切入点表达式：
 
   `execution(代理的方法的权限修饰符 返回值类型 方法所在的类的全类名.方法名(参数列表))`
 
   - 可用一个 * 表示任意的权限修饰符和返回值类型
-  - 可用 * 来表示任意的一级包名或类名
-  - 可用 * 表示方法名任意，用 get* 表示方法名以 get开头
-  - 可用 (..) 表示形参列表任意
+
+    可用 * 来表示任意的一级包名或类名
+
+    可用 * 表示方法名任意，用 get* 表示方法名以 get开头
+
+    可用 (..) 表示形参列表任意
 
 - 复用切入点表达式
 
@@ -1363,13 +1374,27 @@ public class 类名{
   public void 方法名(){}
   
   // 后续需要引用该切入点表达式，则直接通过 方法名()（当前类中使用） 或 全类名.方法名()（其他类中使用） 来引用
-  // @After(value="方法名()")
   ```
+  
+- JoinPoint类型参数：可获取横切关注点（抽取非核心代码）所在的方法的信息
 
-- JoinPoint类型参数：可获取代理的方法的信息（环绕通知中，该参数改为其子类ProceedingJoinPoint）
+  - 【Signature】`JoinPoint对象.getSignature()`：获取横切关注点所在的方法的签名（声明）信息
+    - 【String】`Signature对象.getName()`：获取签名信息中的方法名
+  - 【Object[]】`JoinPoint对象.getArgs()`：获取横切关注点所在的方法的参数列表
+  
+- ProceedingJoinPoint类型参数：可调用目标方法（环绕通知中使用）
 
-  - 【String】`JoinPoint对象.getSignature().getName()`：获取代理的方法的方法名
-  - 【Object[]】`JoinPoint对象.getArgs()`：获取代理的方法的参数列表
+  - 【String】`ProceedingJoinPoint对象.getSignature().getName()`：获取横切关注点所在的方法的方法名
+  - 【Object[]】`ProceedingJoinPoint对象.getArgs()`：获取横切关注点所在的方法的参数列表
+  - 【Object】`ProceedingJoinPoint对象.proceed()`：执行目标方法，并获取其返回值
+
+
+
+4）需要注意的是：
+
+1. AOP底层使用的是静态代理的方式，为目标类生成了代理对象（看起来实现的方式为动态代理）。与代理类似：若直接调用目标方法，是没有代理效果的
+2. 因此，虽然我们将目标类的bean对象存入了IOC容器中，但是，由于该对象应用了通知（被代理），因此，是无法直接通过 getBean() 来获取到该bean对象的（但与代理不同的是：直接调用目标对象，会抛出异常NoSuchBeanDefinitionException）
+3. 但是，与代理一样，会实现与目标类相同的接口。因此，我们可以通过获取目标类所实现的接口的Class，来获取到bean对象，从而调用被通知的方法
 
 
 
@@ -2196,7 +2221,7 @@ public void test2(){
 
 ## 常用依赖
 
-### spring-context
+spring-context
 
 ```xml
 <dependency>
@@ -2208,9 +2233,7 @@ public void test2(){
 
 
 
-
-
-### log4j2
+log4j2
 
 ```xml
 <dependency>
@@ -2228,28 +2251,19 @@ public void test2(){
 
 
 
-
-
-### AOP
+spring-aspects
 
 ```xml
 <dependency>
     <groupId>org.springframework</groupId>
-    <artifactId>spring-aop</artifactId>
-    <version>6.0.3</version>
-</dependency>
-<dependency>
-    <groupId>org.springframework</groupId>
     <artifactId>spring-aspects</artifactId>
-    <version>6.0.3</version>
+    <version>5.3.1</version>
 </dependency>
 ```
 
 
 
-
-
-### Junit整合
+Junit整合
 
 ```xml
 <dependency>
@@ -2278,9 +2292,7 @@ public void test2(){
 
 
 
-
-
-### JdbcTemplate
+JdbcTemplate
 
 ```xml
 <dependency>
@@ -2302,9 +2314,7 @@ public void test2(){
 
 
 
-
-
-### Validator
+Validator
 
 ```xml
 <dependency>
