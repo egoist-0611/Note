@@ -1406,8 +1406,6 @@ public class 类名{
 
 1）引入依赖
 
-
-
 2）定义切面类以及增强方法
 
 
@@ -1424,19 +1422,250 @@ public class 类名{
         http://www.springframework.org/schema/aop/spring-aop.xsd
 -->
 
-<!-- 首先，需先确保IoC容器已创建，并且bean对象已被注入 -->
+<!-- 首先，需先确保IoC容器已创建，并且目标类的bean对象和切面类的bean对象已被注入 -->
 <aop:config>
     
-    <!-- 配置切面类 -->
-    <aop:aspect ref="切面类的bean对象id名">
-        
-        <!-- 配置切入点 -->
-        <aop:pointcut id="切入点id名" expression="切入点表达式"/>
-    	
+    <!-- 配置公共的切入点表达式 -->
+    <aop:pointcut id="id值" expression="切入点表达式"/>
+    
+    <!-- 指定切面类 -->
+    <aop:aspect ref="切面类的bean对象id名" order="切面优先级">
         <!-- 配置五种通知类型 -->
         <!-- 前置通知，其他也类似 -->
-    	<aop:before method="切面类中的方法" pointcut-ref="切入点id名"/>
+    	<aop:before method="切面类中的通知方法" pointcut-ref="公共的切入点表达式的id值"/>
     </aop:aspect>
+</aop:config>
+```
+
+
+
+
+
+
+
+### 应用：声明式事务
+
+#### JdbcTemplate的使用
+
+> 封装 JDBC（对数据库的增删改查）操作
+
+##### 创建对象
+
+> 因为JdbcTemplate是其他jar包下的类，因此是不可能通过注解的方式将该类的bean对象添加进IOC容器中的
+
+1）引入依赖：spring-jdbc、mysql-connector-java、druid
+
+
+
+2）引用外部properties文件，创建数据源（创建JdcbTemplate对象所需）
+
+```xml
+<!-- 使用外部文件引入前，需要先修改文档类型定义。添加后，<context>标签才能被正常识别 -->
+<!--
+	在<beans>标签的文档类型定义中，添加：
+		xmlns:context="http://www.springframework.org/schema/context"
+    在 xsi:schemaLocation 末尾追加：（两者要紧挨）
+    	http://www.springframework.org/schema/context
+    	http://www.springframework.org/schema/context/spring-context.xsd
+-->
+
+<!-- 引入外部properties文件 -->
+<context:property-placeholder location="classpath:文件名.properties"/>
+
+<!-- 创建druid数据源 -->
+<bean id="druid连接源id名" class="com.alibaba.druid.pool.DruidDataSource">
+	<property name="driverClassName" value="${ properties文件对应的key }"/>
+    <property name="url" value="${ properties文件对应的key }"/>
+    <property name="username" value="${ properties文件对应的key }"/>
+    <property name="password" value="${ properties文件对应的key }"/>
+</bean>
+```
+
+
+
+3）创建JdbcTemplate对象
+
+```xml
+<bean id="JdbcTemplate对象id名" class="org.springframework.jdbc.core.JdbcTemplate">
+	<property name="dataSource" ref="druid数据源的id名"/>
+</bean>
+```
+
+
+
+
+
+##### 增删改查
+
+【int】`JdbcTemplate对象.update(String sql,Object...args)`：进行增删改等操作，返回影响行数
+
+- String sql：预编译的SQL语句
+- Object...args：填充占位符
+
+
+
+【T】`JdbcTemplate对象.queryForObject(String sql,RowMapper<T>,Object...args)`：查询操作，返回一条数据
+
+【List\<T>】`JdbcTemplate对象.query(String sql,RowMapper<T>,Object...args)`：查询操作，返回List\<T>数据载体集合
+
+- String sql：预编译的SQL语句
+- RowMapper\<T>：接口，需要重写其内部方法 `T mapRow(ResultSet rs, int rowNum)`
+  - T：封装结果集的类类型
+  - ResultSet rs：第n行的结果集（相当于已直接调用了 next() ）
+  - int rowNum：值为 n-1
+- Object...args：填充占位符
+
+> RowMapper参数值，可以使用其实现类：`BeanPropertyRowMapper<>(Class)`
+>
+> - 该类可以自动替我们将结果集封装到指定的数据载体类中（由Class指定）
+> - 但是需要数据载体类提供相应的无参构造器，以及要封装的字段所对应的get、set方法
+
+
+
+【T】`JdbcTemplate对象.queryForObject(String sql,Class<T>)`：查询操作，返回单个结果
+
+- String sql：预编译的SQL语句
+- Class\<T>：包装类的Class对象
+
+> 查询如：COUNT(*)、MAX(salary) 等返回单个结果的
+
+
+
+
+
+
+
+#### 基于注解实现事务
+
+1）开启组件扫描功能，引入properties文件，创建DataSource数据源，创建JdbcTemplate对象
+
+```xml
+<!-- 开启组件扫描功能 -->
+<context:component-scan base-package="包路径"/>
+
+<!-- 引入properties文件 -->
+<context:property-placeholder location="jdbc.properties"/>
+
+<!-- 创建DataSource数据源 -->
+<bean id="DataSource数据源id名" class="com.alibaba.druid.pool.DruidDataSource">
+    <property name="driverClassName" value="${driverClass值}"/>
+    <property name="url" value="${url值}"/>
+    <property name="username" value="${username值}"/>
+    <property name="password" value="${password值}"/>
+</bean>
+
+<!-- 创建JdbcTemplate对象 -->
+<bean id="JdbcTemplate对象id名" class="org.springframework.jdbc.core.JdbcTemplate">
+    <property name="dataSource" ref="DataSource数据源id名"/>
+</bean>
+```
+
+
+
+2）配置事务管理器（即：具有事务功能的切面类）
+
+```xml
+<bean id="事务管理器id名" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+    <property name="dataSource" ref="DataSource数据源id名"/>
+    <!-- 事务的所有操作，与连接对象是密不可分的，因此，数据源对象的绑定必不可少 -->
+</bean>
+```
+
+
+
+3）开启事务的注解驱动（即：启用注解@Transactional，让使用了该注解的位置处作为切入点，应用通知方法）
+
+```xml
+<tx:annotation-driven transaction-manager="事务管理器id名"/>
+
+<!-- 使用<tx>前，需要先修改文档类型定义。添加后，<tx>标签才能被正常识别 -->
+<!-- 
+在<beans>标签的文档类型定义中，添加：
+  xmlns:tx="http://www.springframework.org/schema/tx"
+在 xsi:schemaLocation 末尾追加：（两者要紧挨）
+  http://www.springframework.org/schema/tx
+  http://www.springframework.org/schema/tx/spring-tx.xsd
+-->
+```
+
+
+
+4）在需要使用事务的地方开启事务
+
+```java
+@Transactional
+public class 类名{}
+```
+
+- @Transactional 作用范围的效果：
+
+  - 当修饰类时，该类中所有的方法都启用事务
+
+  - 当修饰方法时，仅该方法启用事务
+
+@Transactional 属性介绍：
+
+- transactionManager = "事务管理器id名"
+- readOnly = true：只读，只能进行查询操作，不能进行增删改等操作
+- timeout = 秒数：以秒为单位，方法执行超时时，自动回滚
+- noRollbackFor、noRollbackForClassName：对指定的异常不进行回滚
+- propagation：设置传播行为
+  - propagation = Propagation.REQUIRED（默认）：有两层事务，外层事务与内层事务。这种情况下：只要内层事务出现异常，内外层事务都会进行回滚（只有外层事务全部执行完，且没有出现过异常，事务才不会回滚）
+  - propagation = Propagation.REQUIRES_NEW：有两层事务，外层事务与内层事务。这种情况下：内层事务出现异常时，会进行回滚，但外层事务已执行完毕的，不会进行回滚
+
+
+
+
+
+
+
+#### 基于XML文件实现事务
+
+> 需要引入依赖：spring-aspects
+
+1）开启组件扫描，创建数据源对象，创建JdbcTemplate对象，配置事务管理器
+
+```xml
+<!-- 开启组件扫描功能 -->
+<context:component-scan base-package="包路径"/>
+
+<!-- 引入properties文件 -->
+<context:property-placeholder location="jdbc.properties"/>
+
+<!-- 创建DataSource数据源 -->
+<bean id="DataSource数据源id名" class="com.alibaba.druid.pool.DruidDataSource">
+    <property name="driverClassName" value="${driverClass值}"/>
+    <property name="url" value="${url值}"/>
+    <property name="username" value="${username值}"/>
+    <property name="password" value="${password值}"/>
+</bean>
+
+<!-- 创建JdbcTemplate对象 -->
+<bean id="JdbcTemplate对象id名" class="org.springframework.jdbc.core.JdbcTemplate">
+    <property name="dataSource" ref="DataSource数据源id名"/>
+</bean>
+
+<!-- 配置事务管理器 -->
+<bean id="事务管理器id名" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+    <property name="dataSource" ref="DataSource数据源id名"/>
+    <!-- 事务的所有操作，与连接对象是密不可分的，因此，数据源对象的绑定必不可少 -->
+</bean>
+```
+
+
+
+2）配置事务作用（范围）的方法集，并应用到指定切入点位置处
+
+```xml
+<tx:advice id="要被事务管理的方法集id名" transaction-manager="事务管理器id名">
+    <tx:attributes>
+        <tx:method name="*"/>	
+        <!-- 这些标签代表：要被管理的方法的方法名，*表示匹配该切入点下所有的方法（名） -->
+    </tx:attributes>
+</tx:advice>
+
+<aop:config>
+    <aop:advisor advice-ref="要被事务管理的方法集id名" pointcut="切入点表达式"/>
 </aop:config>
 ```
 
@@ -1448,7 +1677,11 @@ public class 类名{
 
 
 
-## 整合Junit
+
+
+## 其他整合
+
+### 整合Junit
 
 > 在进行单元测试时，我们还需要通过ApplicationContext来获取到bean对象，这些步骤可以依赖Spring的整合功能而省略
 
@@ -1475,9 +1708,11 @@ public class TestJunit5{
     属性类型 属性名;
 }
 
-// Junit4
+// Junit4：
+	// 指定当前测试类在Spring的测试环境中执行。声明后，就可以直接通过注入的方式，获取到IOC容器中的bean
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration("classpath:test3.xml")
+	// 指定Spring测试环境所使用的配置文件（读取的IOC容器）
+@ContextConfiguration("classpath:xml文件路径")
 public class TestJunit4{
     @Autowired
     属性类型 属性名;
@@ -1494,259 +1729,9 @@ public class TestJunit4{
 
 
 
-## JdbcTemplate
+### 资源处理
 
-> 封装 JDBC（对数据库的增删改查）操作
-
-### 获取对象
-
-1）引入依赖：spring-jdbc、mysql-connector-java、druid
-
-
-
-2）引用外部properties文件，创建连接池对象
-
-```xml
-<!-- 使用外部文件引入前，需要先修改文档类型定义。添加后，<context>标签才能被正常识别 -->
-<!--
-	在<beans>标签的文档类型定义中，添加：
-		xmlns:context="http://www.springframework.org/schema/context"
-    在 xsi:schemaLocation 末尾追加：（两者要紧挨）
-    	http://www.springframework.org/schema/context
-    	http://www.springframework.org/schema/context/spring-context.xsd
--->
-
-<!-- 引入外部properties文件 -->
-<context:property-placeholder location="classpath:文件名.properties"/>
-
-<!-- 创建druid数据库连接池对象 -->
-<bean id="druid连接池对象id名" class="com.alibaba.druid.pool.DruidDataSource">
-	<property name="driverClassName" value="${ properties文件对应的key }"/>
-    <property name="url" value="${ properties文件对应的key }"/>
-    <property name="username" value="${ properties文件对应的key }"/>
-    <property name="password" value="${ properties文件对应的key }"/>
-</bean>
-```
-
-
-
-3）创建JdbcTemplate对象，绑定数据库连接池
-
-```xml
-<bean id="JdbcTemplate对象id名" class="org.springframework.jdbc.core.JdbcTemplate">
-	<property name="dataSource" ref="druid连接池对象id名"/>
-</bean>
-```
-
-
-
-
-
-### 增删改查
-
-【int】`JdbcTemplate对象.update(String sql,Object...args)`：进行增删改等操作，返回影响行数
-
-- String sql：预编译的SQL语句
-- Object...args：填充占位符
-
-
-
-【T】`JdbcTemplate对象.queryForObject(String sql,RowMapper<T>,Object...args)`：查询操作，返回一条数据
-
-【List\<T>】`JdbcTemplate对象.query(String sql,RowMapper<T>,Object...args)`：查询操作，返回List\<T>数据载体集合
-
-- String sql：预编译的SQL语句
-- RowMapper\<T>：接口，需要重写其内部方法 `T mapRow(ResultSet rs, int rowNum)`
-  - T：封装结果集的类类型
-  - ResultSet rs：第n行的结果集（相当于已直接调用了 next() ）
-  - int rowNum：值为 n-1
-- Object...args：填充占位符
-
-> RowMapper参数值，可以使用其实现类：`BeanPropertyRowMapper<>(Class)`
->
-> - 该类可以自动替我们将结果集封装到指定的数据载体类中（由Class指定）
-> - 但是需要提供无参构造器，以及要封装的字段所对应的get、set方法
-
-
-
-【T】`JdbcTemplate对象.queryForObject(String sql,Class<T>)`：查询操作，返回单个结果
-
-- String sql：预编译的SQL语句
-- Class\<T>：包装类的Class对象
-
-> 查询如：COUNT(*)、MAX(salary) 等返回单个结果的
-
-
-
-
-
-
-
-
-
-## 事务
-
-### 全注解实现
-
-1）创建配置类，开启扫描注入，开启事务功能
-
-```java
-@Configuration		// 声明当前类为配置类
-@ComponentScan("包路径")		// 开启扫描注入功能
-@EnableTransactionManagement		// 开启事务管理功能
-public class 类名{}
-```
-
-> ```xml
-> <tx:annotation-driven transaction-manager="事务管理器id名"/>
-> <!-- 与 @EnableTransactionManagement 功能一样，开启事务管理功能 -->
-> 
-> <!-- 使用<tx>前，需要先修改文档类型定义。添加后，<tx>标签才能被正常识别 -->
-> <!-- 
->     在<beans>标签的文档类型定义中，添加：
->         xmlns:tx="http://www.springframework.org/schema/tx"
->     在 xsi:schemaLocation 末尾追加：（两者要紧挨）
->         http://www.springframework.org/schema/tx
->         http://www.springframework.org/schema/tx/spring-tx.xsd
-> -->
-> ```
-
-
-
-2）创建数据源DataSource对象，配置事务管理器，创建JdbcTemplate对象
-
-```java
-// 创建数据源
-@Bean
-public DataSource getDataSource() {
-    InputStream is = this.getClass().getClassLoader().getResourceAsStream("类路径下的properties文件");
-    Properties properties = new Properties();
-    properties.load(is);
-    DruidDataSource druidDataSource = new DruidDataSource();
-    druidDataSource.setDriverClassName(properties.getProperty("driverClass值"));
-    druidDataSource.setUrl(properties.getProperty("url值"));
-    druidDataSource.setUsername(properties.getProperty("username值"));
-    druidDataSource.setPassword(properties.getProperty("password值"));
-    return druidDataSource;
-}
-
-// 配置事务管理器，绑定数据源
-@Bean
-public DataSourceTransactionManager dataSourceTransactionManager(DataSource dataSource) {
-    DataSourceTransactionManager dataSourceTransactionManager = new DataSourceTransactionManager();
-    dataSourceTransactionManager.setDataSource(dataSource);
-    return dataSourceTransactionManager;
-}
-
-// 创建JdbcTemplate对象
-@Bean
-public JdbcTemplate jdbcTemplate(DataSource dataSource) {
-    JdbcTemplate jdbcTemplate = new JdbcTemplate();
-    jdbcTemplate.setDataSource(dataSource);
-    return jdbcTemplate;
-}
-```
-
-
-
-3）开启事务
-
-```java
-@Transactional			// 开启事务，根据事务管理器，对指定的数据源进行事务管理
-public class 类名{}
-```
-
-- @Transactional修饰类时，该类中所有的方法都存在事务
-
-  修饰方法时，仅该方法存在事务
-
-@Transactional属性介绍：
-
-- transactionManager = "事务管理器id名"
-- readOnly = true：只读，只能进行查询操作，不能进行增删改等操作
-- timeout = 秒数：以秒为单位，方法执行超时时，自动回滚
-- noRollbackFor、noRollbackForClassName：对指定的异常不进行回滚
-- propagation：设置传播行为
-  - propagation = Propagation.REQUIRED（默认）：有两层事务，外层事务与内层事务。这种情况下：只要内层事务出现异常，内外层事务都会进行回滚（只有外层事务全部执行完，且没有出现过异常，事务才不会回滚）
-  - propagation = Propagation.REQUIRES_NEW：有两层事务，外层事务与内层事务。这种情况下：内层事务出现异常时，会进行回滚，但外层事务已执行完毕的，不会进行回滚
-
-
-
-
-
-
-
-
-
-### XML文件实现
-
-1）开启扫描注入功能
-
-```xml
-<context:component-scan base-package="包路径"/>
-```
-
-
-
-2）引入properties文件，创建DataSource数据源，创建JdbcTemplate对象
-
-```xml
-<!-- 引入properties文件 -->
-<context:property-placeholder location="jdbc.properties"/>
-
-<!-- 创建DataSource数据源 -->
-<bean id="DataSource数据源id名" class="com.alibaba.druid.pool.DruidDataSource">
-    <property name="driverClassName" value="${driverClass值}"/>
-    <property name="url" value="${url值}"/>
-    <property name="username" value="${username值}"/>
-    <property name="password" value="${password值}"/>
-</bean>
-
-<!-- 创建JdbcTemplate对象 -->
-<bean id="JdbcTemplate对象id名" class="org.springframework.jdbc.core.JdbcTemplate">
-    <property name="dataSource" ref="DataSource数据源id名"/>
-</bean>
-```
-
-
-
-3）配置事务管理器
-
-```xml
-<bean id="事务管理器id名" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
-    <property name="dataSource" ref="DataSource数据源id名"/>
-</bean>
-```
-
-
-
-4）使用xml配置文件开启事务管理，实质上是使用AOP思想，根据切入点，在指定的方法集上进行增强（事务管理）
-
-```xml
-<tx:advice id="要被事务管理的方法集id名" transaction-manager="事务管理器id名">
-    <tx:attributes>
-        <tx:method name="*"/>	<!-- 这些标签代表：要被管理的方法的方法名 -->
-    </tx:attributes>
-</tx:advice>
-
-<aop:config>
-    <aop:pointcut id="切入点id名" expression="切入点表达式"/>
-    <aop:advisor advice-ref="要被事务管理的方法集id名" pointcut-ref="切入点id名"/>
-</aop:config>
-<!-- 使用到了AOP，就需要引入对应的依赖 -->
-```
-
-
-
-
-
-
-
-
-
-## 资源处理
-
-### Resource接口
+#### Resource接口
 
 > 依赖于spring-context，位于 org.springframework.core.io包 下，用于抽象对低级资源的访问
 
@@ -1771,9 +1756,7 @@ public class 类名{}
 
 
 
-
-
-### ResourceLoader接口
+#### ResourceLoader接口
 
 > 该接口的实现类的实例，是一个Resource对象
 
@@ -1801,7 +1784,7 @@ public class 类名{}
 
 
 
-### ResourceLoaderAware接口
+#### ResourceLoaderAware接口
 
 - 当实现了该接口的实现类的实例，被部署到了IoC容器中，那么Spring容器会将自身当成ResourceLoader，作为其方法`setResourceLoader(ResourceLoader)`的参数
 
@@ -1845,9 +1828,9 @@ public class 类名{}
 
 
 
-### 其他知识点
+#### 其他知识点
 
-#### classpath通配符
+##### classpath通配符
 
 > 在填写资源路径时，是可以明确指定资源是位于哪个路径下的，如：
 >
@@ -1867,9 +1850,9 @@ public class 类名{}
 
 
 
-## 国际化
+### 国际化
 
-### Java中实现国际化
+#### Java中实现国际化
 
 1. 创建配置文件
 
@@ -1920,7 +1903,7 @@ public void test2(){
 
 
 
-### Spring中实现国际化
+#### Spring中实现国际化
 
 > Spring中的国际化，是通过 org.springframework.context包 下的MessageSource接口来规范的
 >
@@ -1972,9 +1955,9 @@ public void test2(){
 
 
 
-## 数据校验
+### 数据校验
 
-### 实现接口方式
+#### 实现接口方式
 
 > 通过实现 org.springframework.validation.Validator 接口的方式实现
 
@@ -2030,7 +2013,7 @@ public void test2(){
 
 
 
-### 注解方式
+#### 注解方式
 
 1. 创建LocalValidatorFactoryBean对象
 
@@ -2113,7 +2096,7 @@ public void test2(){
 
 
 
-### 方法方式
+#### 方法方式
 
 1. 创建MethodValidationPostProcessor对象
 
@@ -2150,7 +2133,7 @@ public void test2(){
 
 
 
-### 自定义注解
+#### 自定义注解
 
 1. 创建自定义注解
 
@@ -2198,9 +2181,7 @@ public void test2(){
 
 
 
-
-
-## AOT
+### AOT
 
 1. JIT：Just In Time，动态编译（实时编译），边运行边编译
    - 在程序运行时，动态生成代码
@@ -2269,7 +2250,7 @@ Junit整合
 <dependency>
     <groupId>org.springframework</groupId>
     <artifactId>spring-test</artifactId>
-    <version>6.0.3</version>
+    <version>5.3.1</version>
     <scope>test</scope>
 </dependency>
 
@@ -2298,7 +2279,7 @@ JdbcTemplate
 <dependency>
     <groupId>org.springframework</groupId>
     <artifactId>spring-jdbc</artifactId>
-    <version>6.0.3</version>
+    <version>5.3.1</version>
 </dependency>
 <dependency>
     <groupId>mysql</groupId>
@@ -2308,7 +2289,7 @@ JdbcTemplate
 <dependency>
     <groupId>com.alibaba</groupId>
     <artifactId>druid</artifactId>
-    <version>1.2.15</version>
+    <version>1.2.8</version>
 </dependency>
 ```
 
