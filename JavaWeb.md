@@ -2424,8 +2424,8 @@ tl.remove();		// 移除掉当前线程中tl对象存储的值
 ```javascript
 axios({			// 发送请求，需要一个对象，并且有几个必要的参数：请求方式、请求路径
     method:"POST",		// 请求方式
-	url:"请求路径",
-    			// date（JSON数据）、params（普通请求参数）
+	url:"请求路径",		 // 请求路径
+    // 请求参数：data（JSON数据）、params（普通请求参数）
 }).then(function(value){
     // 成功响应后执行的回调函数。
     // 其中，value.data 可以获取到服务器端响应的内容
@@ -2480,6 +2480,12 @@ async function method2(){
 
 #### 普通参数
 
+params：发送普通的请求参数。使用该方式发送的请求参数，无论是get请求或是post请求，都会以 name=value&name=value 的方式拼接到请求地址后
+
+> 此方式获取到的请求参数，可以直接通过 request.getParameter() 的方式直接获取
+
+
+
 ##### 前端请求
 
 ```html
@@ -2503,6 +2509,7 @@ async function method2(){
                         alert(value.data);
                     }).catch(function(reason){});
                     
+                    // 通常情况下，我们会使用 axios.get("请求路径",{请求参数}) 来代替
                 }
             }
         });
@@ -2535,6 +2542,12 @@ public class 类名 extends HttpServlet {
 
 #### JSON格式
 
+data：以JSON数据格式的方式发送请求参数，该请求参数会存放于请求的请求体中
+
+> 通过获取请求体，并使用第三方jar包将该JSON格式的数据转换为实体类对象或Map集合
+
+
+
 ##### 前端请求
 
 ```html
@@ -2557,6 +2570,7 @@ public class 类名 extends HttpServlet {
                         // Axios会自动帮我们将JSON格式的字符串转换为JSON对象
                     }).catch(function(reason){});
                     
+                    // 通常情况下，我们会使用 axios.post("请求路径",{请求参数}) 来代替
                 }
             }
         });
