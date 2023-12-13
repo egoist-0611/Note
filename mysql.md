@@ -1477,9 +1477,15 @@ ROLLBACK：回滚数据。一旦执行ROLLBACK，则可以实现数据的回滚�
 
 `SUBTIME(date1,date2)`：date1的时分秒减去date2的时分秒
 
+
+
 `DATEDIFF(date1,date2)`：返回两个日期间隔的天数（date1-date2）
 
-`TIMEDIFF(date1,date2)`：返回两个日期间隔的时分秒
+`TIMESTAMPDIFF(x,date1,date2)`：返回两个日期间隔的时间（date2-date1）
+
+- x的值：DAY / HOUR / MINUTE / SECOND：表示两个日期的间隔时间以 天/小时/分钟/秒 来表示
+
+
 
 `FROM_DAYS(n)`：返回从0000年1月1日起，n天以后的日期
 
@@ -1872,8 +1878,8 @@ SELECT COUNT(commission_pct) FROM employees;
 5）TIMESTAMP
 
 1. UTC表示世界统一时间（世界标准时间）
-2. 底层使用毫秒值进行存储（距离1970-1-1 0:0:0 0ms 间的毫秒值）
-3. 会根据时区的不同，显示不同的结果
+2. 可以设置在修改数据时，自动修改为当前时间：`on update current_timestamp`
+3. 底层使用毫秒值进行存储（距离1970-1-1 0:0:0 0ms 间的毫秒值）。在读取数据时，再将毫秒值转换为0时区的时间（因此，若是使用该数据类型，要自定义时间样式，并且让GMT（时区）+8）
 
 
 
